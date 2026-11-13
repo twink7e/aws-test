@@ -1,0 +1,5 @@
+bucket       = "poper-test-123456789012-ap-northeast-1-tfstate"
+key          = "poper-test/foundation.tfstate"
+region       = "ap-northeast-1"
+encrypt      = true
+use_lockfile = true

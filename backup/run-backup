@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+: "${DB_HOST:?DB_HOST is required}"
+: "${DB_NAME:?DB_NAME is required}"
+: "${DB_USERNAME:?DB_USERNAME is required}"
+: "${DB_PASSWORD:?DB_PASSWORD is required}"
+: "${BACKUP_BUCKET:?BACKUP_BUCKET is required}"
+: "${AWS_REGION:?AWS_REGION is required}"
+
+umask 077
+export PGPASSWORD="$DB_PASSWORD"
+export PGCONNECT_TIMEOUT="${PGCONNECT_TIMEOUT:-10}"
+export PGSSLMODE="${PGSSLMODE:-require}"
+
+timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+date_path="$(date -u +%Y/%m/%d)"
+prefix="${BACKUP_PREFIX:-database}"
+prefix="${prefix#/}"
+prefix="${prefix%/}"
+key="${prefix:+${prefix}/}${date_path}/postgres-${timestamp}.dump"
+dump_file="$(mktemp /tmp/postgres-backup.XXXXXX)"
+trap 'rm -f "$dump_file"' EXIT
+
+pg_dump \
+    --host="$DB_HOST" \
+    --port="${DB_PORT:-5432}" \
+    --username="$DB_USERNAME" \
+    --no-password \
+    --dbname="$DB_NAME" \
+    --format=custom \
+    --file="$dump_file"
+
+if [[ ! -s "$dump_file" ]]; then
+    echo 'pg_dump produced an empty file' >&2
+    exit 1
+fi
+
+python3 /usr/local/bin/upload.py "$dump_file" "$BACKUP_BUCKET" "$key"
+echo "Backup uploaded and verified: s3://$BACKUP_BUCKET/$key"

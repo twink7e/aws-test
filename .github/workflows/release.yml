@@ -1,0 +1,232 @@
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: poper-main-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - name: Check bootstrap configuration
+        id: check
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          SNS_TOPIC_ARN: ${{ vars.SNS_TOPIC_ARN }}
+          TF_PROJECT_NAME: ${{ vars.TF_PROJECT_NAME || 'poper-test' }}
+        run: |
+          if [[ "$GITHUB_REF" != 'refs/heads/main' ]]; then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::Deployments run only from main.'
+            exit 0
+          fi
+
+          missing=()
+          for variable in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY TF_STATE_BUCKET AWS_REGION SNS_TOPIC_ARN; do
+            if [[ -z "${!variable}" ]]; then
+              missing+=("$variable")
+            fi
+          done
+          if ((${#missing[@]})); then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo "::notice::Deployment skipped. Set the listed AWS Secrets or repository variables: ${missing[*]}"
+            echo "Deployment skipped. Missing AWS Secrets or repository variables: ${missing[*]}" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [[ "$AWS_REGION" != 'ap-northeast-1' ]]; then
+            echo '::error::The assessment must deploy in AWS Tokyo (ap-northeast-1).'
+            exit 1
+          fi
+          if [[ ! "$TF_PROJECT_NAME" =~ ^[a-z][a-z0-9-]{2,22}$ ]]; then
+            echo '::error::TF_PROJECT_NAME must match the Terraform project_name format.'
+            exit 1
+          fi
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: preflight
+    if: needs.preflight.outputs.ready == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_PROJECT_NAME: ${{ vars.TF_PROJECT_NAME || 'poper-test' }}
+      IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check workload resource scope
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          blocked = []
+          for path in Path('infra/terraform/workload').rglob('*.tf'):
+              for resource in re.findall(r'^\s*resource\s+"(aws_[^"]+)"', path.read_text(), re.M):
+                  if resource.startswith(('aws_iam_', 'aws_sfn_', 'aws_sqs_')):
+                      blocked.append(f'{path}: {resource}')
+          if blocked:
+              raise SystemExit('CI cannot create IAM, Step Functions, or SQS resources:\n' + '\n'.join(blocked))
+          PY
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build PHP-FPM image
+        uses: docker/build-push-action@v6
+        with:
+          context: app
+          file: app/Dockerfile
+          platforms: linux/arm64
+          load: true
+          tags: poper-app:ci
+
+      - name: Build Nginx image
+        uses: docker/build-push-action@v6
+        with:
+          context: app
+          file: app/docker/nginx.Dockerfile
+          platforms: linux/arm64
+          load: true
+          tags: poper-web:ci
+
+      - name: Build PostgreSQL backup image
+        uses: docker/build-push-action@v6
+        with:
+          context: backup
+          file: backup/Dockerfile
+          platforms: linux/arm64
+          load: true
+          tags: poper-backup:ci
+
+      - name: Smoke test PHP, Nginx, and backup images
+        run: bash app/docker/smoke.sh poper-app:ci poper-web:ci poper-backup:ci
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: '~1.17.0'
+          terraform_wrapper: false
+
+      - name: Read foundation outputs
+        id: repos
+        run: |
+          terraform -chdir=infra/terraform/foundation init -input=false \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="key=$TF_PROJECT_NAME/foundation.tfstate" \
+            -backend-config="region=$AWS_REGION" \
+            -backend-config='use_lockfile=true'
+          echo "app=$(terraform -chdir=infra/terraform/foundation output -raw ecr_app_repository_url)" >> "$GITHUB_OUTPUT"
+          echo "web=$(terraform -chdir=infra/terraform/foundation output -raw ecr_web_repository_url)" >> "$GITHUB_OUTPUT"
+          echo "backup=$(terraform -chdir=infra/terraform/foundation output -raw ecr_backup_repository_url)" >> "$GITHUB_OUTPUT"
+
+      - name: Validate workload Terraform
+        run: |
+          terraform -chdir=infra/terraform/workload init -input=false \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="key=$TF_PROJECT_NAME/workload.tfstate" \
+            -backend-config="region=$AWS_REGION" \
+            -backend-config='use_lockfile=true'
+          terraform -chdir=infra/terraform/workload validate -no-color
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Push tested images and resolve ECR digests
+        id: pushed
+        env:
+          APP_REPO: ${{ steps.repos.outputs.app }}
+          WEB_REPO: ${{ steps.repos.outputs.web }}
+          BACKUP_REPO: ${{ steps.repos.outputs.backup }}
+        run: |
+          docker tag poper-app:ci "$APP_REPO:$IMAGE_TAG"
+          docker tag poper-web:ci "$WEB_REPO:$IMAGE_TAG"
+          docker tag poper-backup:ci "$BACKUP_REPO:$IMAGE_TAG"
+          docker push "$APP_REPO:$IMAGE_TAG"
+          docker push "$WEB_REPO:$IMAGE_TAG"
+          docker push "$BACKUP_REPO:$IMAGE_TAG"
+
+          app_digest="$(aws ecr describe-images --repository-name "${APP_REPO#*/}" --image-ids "imageTag=$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text)"
+          web_digest="$(aws ecr describe-images --repository-name "${WEB_REPO#*/}" --image-ids "imageTag=$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text)"
+          backup_digest="$(aws ecr describe-images --repository-name "${BACKUP_REPO#*/}" --image-ids "imageTag=$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text)"
+          echo "app_image=$APP_REPO@$app_digest" >> "$GITHUB_OUTPUT"
+          echo "web_image=$WEB_REPO@$web_digest" >> "$GITHUB_OUTPUT"
+          echo "backup_image=$BACKUP_REPO@$backup_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Apply workload using immutable image digests
+        env:
+          TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+          TF_VAR_name_prefix: ${{ vars.TF_PROJECT_NAME || 'poper-test' }}
+          TF_VAR_foundation_state_bucket: ${{ vars.TF_STATE_BUCKET }}
+          TF_VAR_foundation_state_key: ${{ vars.TF_PROJECT_NAME || 'poper-test' }}/foundation.tfstate
+          TF_VAR_app_image: ${{ steps.pushed.outputs.app_image }}
+          TF_VAR_web_image: ${{ steps.pushed.outputs.web_image }}
+          TF_VAR_backup_image: ${{ steps.pushed.outputs.backup_image }}
+        run: |
+          terraform -chdir=infra/terraform/workload apply -auto-approve -input=false -no-color
+
+          cluster="$(terraform -chdir=infra/terraform/workload output -raw cluster_name)"
+          service="$(terraform -chdir=infra/terraform/workload output -raw service_name)"
+          expected_task="$(terraform -chdir=infra/terraform/workload output -raw web_task_definition_arn)"
+          aws ecs wait services-stable --cluster "$cluster" --services "$service"
+          service_json="$(aws ecs describe-services --cluster "$cluster" --services "$service")"
+          active_task="$(jq -r '.services[0].taskDefinition' <<< "$service_json")"
+          deployment_count="$(jq -r '.services[0].deployments | length' <<< "$service_json")"
+          running_count="$(jq -r '.services[0].runningCount' <<< "$service_json")"
+          desired_count="$(jq -r '.services[0].desiredCount' <<< "$service_json")"
+          if [[ "$active_task" != "$expected_task" || "$deployment_count" != 1 || "$running_count" != "$desired_count" ]]; then
+            echo "ECS did not stabilize on expected task definition: expected=$expected_task active=$active_task deployments=$deployment_count running=$running_count desired=$desired_count" >&2
+            exit 1
+          fi
+
+          echo 'Deployed immutable image digests:' >> "$GITHUB_STEP_SUMMARY"
+          echo "- App: $TF_VAR_app_image" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Web: $TF_VAR_web_image" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Backup: $TF_VAR_backup_image" >> "$GITHUB_STEP_SUMMARY"
+
+  notify:
+    needs: [preflight, release]
+    if: always() && needs.preflight.outputs.ready == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Publish release result
+        env:
+          SNS_TOPIC_ARN: ${{ vars.SNS_TOPIC_ARN }}
+          RELEASE_RESULT: ${{ needs.release.result }}
+        run: |
+          message="Repository: $GITHUB_REPOSITORY
+          Commit: $GITHUB_SHA
+          Result: $RELEASE_RESULT
+          Run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          aws sns publish \
+            --topic-arn "$SNS_TOPIC_ARN" \
+            --subject "POPER deployment $RELEASE_RESULT" \
+            --message "$message"

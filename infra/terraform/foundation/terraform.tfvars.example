@@ -1,0 +1,7 @@
+aws_region                        = "ap-northeast-1"
+project_name                      = "poper-test"
+environment                       = "interview"
+alert_email_addresses             = ["first@example.com", "second@example.com"]
+acm_certificate_arn               = null # Supply an existing Tokyo ACM certificate for HTTPS.
+appconfig_use_gradual_deployment = false # Set true before subsequent AppConfig changes.
+force_destroy_backup_bucket       = false

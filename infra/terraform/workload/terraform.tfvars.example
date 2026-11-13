@@ -1,0 +1,16 @@
+aws_region              = "ap-northeast-1"
+name_prefix             = "poper-test"
+foundation_state_bucket = "REPLACE_WITH_TERRAFORM_STATE_BUCKET"
+foundation_state_key    = "poper-test/foundation.tfstate"
+
+# Replace these with image URI@sha256:digest values emitted by the release build.
+app_image    = "123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/poper-test/app@sha256:REPLACE"
+web_image    = "123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/poper-test/web@sha256:REPLACE"
+backup_image = "123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/poper-test/backup@sha256:REPLACE"
+
+demo_message               = "Hello from POPER test"
+enable_demo_failure_routes = false
+backup_schedule_expression = "cron(0 2 * * ? *)"
+backup_schedule_timezone   = "Asia/Tokyo"
+backup_prefix              = "daily"
+# backup_ephemeral_storage_gib = 40 # Needed only if the dump exceeds 20 GiB.

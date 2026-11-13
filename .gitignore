@@ -1,0 +1,37 @@
+# Terraform working files and credentials
+AKSK.env
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfplan
+**/terraform.tfvars
+**/*.auto.tfvars
+**/backend.hcl
+**/crash.log
+**/crash.*.log
+
+# Local application state and dependencies
+.env
+.env.*
+*.env
+!.env.example
+**/vendor/
+**/node_modules/
+**/__pycache__/
+*.pyc
+app/storage/*.key
+app/storage/logs/*
+!app/storage/logs/.gitignore
+app/bootstrap/cache/*.php
+!app/bootstrap/cache/.gitignore
+
+# Editor and macOS files
+.DS_Store
+.idea/
+.vscode/
+
+# Backup outputs and local evidence
+*.dump
+*.dump.gz
+*.log
+evidence/local/
