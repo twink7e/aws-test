@@ -59,7 +59,7 @@ jobs:
   release:
     needs: preflight
     if: needs.preflight.outputs.ready == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
     env:
@@ -85,7 +85,6 @@ jobs:
           if blocked:
               raise SystemExit('CI cannot create IAM, Step Functions, or SQS resources:\n' + '\n'.join(blocked))
           PY
-      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
       - name: Build PHP-FPM image
