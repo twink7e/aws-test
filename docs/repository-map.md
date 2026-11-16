@@ -65,11 +65,12 @@
 | `docs/architecture.md` | Terraform stack 边界、网络、请求、配置、备份和日志流。 |
 | `docs/architecture.png` | 可独立打开或提交的整体架构图。 |
 | `docs/deployment-evidence.md` | 东京区域实际部署、访问、日志、告警、备份与恢复的验证记录及外部阻碍。 |
+| `docs/evidence/cloudwatch-backup-failed-history.png` | 用户提供的东京区域 CloudWatch 备份失败告警 History 截图，记录告警触发、SNS topic action 和恢复。 |
 | `docs/terraform-feasibility.md` | 题目逐项的 Terraform 可实现性、告警设计、ECS/RDS 缩容限制和当前账号权限边界。 |
 | `docs/plan-summary.md` | 东京账号 Terraform 部署进度、资源数量、关键配置与剩余验收条件。 |
 | `docs/repository-map.md` | 当前逐目录、逐文件说明。 |
 | `docs/runbook.md` | 首次部署、验收、备份恢复、告警演示和销毁步骤。 |
-| `docs/submission.md` | 原题交付包索引：公开仓库、东京区域 AWS Console 入口、架构图、告警触发方法与待补截图。 |
+| `docs/submission.md` | 原题交付包索引：公开仓库、东京区域 AWS Console 入口、架构图、告警触发方法、已有备份告警截图与待补截图。 |
 | `scripts/render_architecture.py` | 用 Pillow 重新生成 `docs/architecture.png`。 |
 
 ## Terraform bootstrap 文件

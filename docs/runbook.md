@@ -8,7 +8,7 @@
 
 - AWS CLI 使用本机仓库根目录的 `AKSK.env`。先从根目录运行 `source ./AKSK.env`，再运行 `export AWS_ACCESS_KEY_ID="$AK" AWS_SECRET_ACCESS_KEY="$SK" AWS_DEFAULT_REGION=ap-northeast-1`，最后运行 `aws sts get-caller-identity`，确认是测评账号。`AKSK.env` 已被 Git 忽略，不要把其内容复制到文档或提交仓库。
 - Terraform 版本满足各 stack 的 `versions.tf`；Docker Buildx 可构建 `linux/arm64`；有权限在 GitHub 仓库设置 Actions variables。
-- 独立 GitHub 测试账号下的 [fafafafa868888/poper-test](https://github.com/fafafafa868888/poper-test) 仓库已推送 `main`，登录态显示 Public。当前匿名账号主页、仓库和 raw 文件均返回 404；账号已开启 2FA，但 GitHub Support 手机短信验证页提示请求次数限制，尚未提交工单。账号所有者稍后须完成短信验证，再请求复核账号可见性。GitHub Actions 计划使用托管 runner，不需要新建常驻 CI 服务器。
+- [twink7e/aws-test](https://github.com/twink7e/aws-test) 的公开权限已核实，Actions Variables/Secrets 已配置。本次 `main` 推送后核对匿名代码访问和工作流运行结果。GitHub Actions 使用托管 runner，不需要新建常驻 CI 服务器。
 - 告警别名已定为 `zhangsan`：`minghe.yin+zhangsan@poper.co`、`te.qi+zhangsan@poper.co`。两个 SNS 订阅目前仍为 `PendingConfirmation`；两位收件人都要点击确认邮件，否则 SNS 不会投递。
 
 建议同时设置 `AWS_REGION=ap-northeast-1`，并在每次 `apply` 前重新确认账号身份。仓库里的 `*.example` 文件只含示例值，实际的 `terraform.tfvars`、`backend.hcl` 均被 `.gitignore` 排除。
@@ -56,11 +56,11 @@ terraform output
 | `SNS_TOPIC_ARN` | foundation 输出的通知 topic ARN。 |
 | `TF_PROJECT_NAME` | 可选；项目资源名前缀，默认 `poper-test`，须与 foundation 的 `project_name` 一致。 |
 
-上述 Variables 和 Secrets `AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY` 已在仓库中配置，后两者对应本地 `AKSK.env` 中的 `AK`、`SK`。不要把密钥放进 Actions Variables、工作流 YAML 或仓库文件。该测评使用现有受限 IAM 用户，测试结束删除这两个 Secrets，并轮换或停用这组 AK/SK。
+上述四个 Variables 和两个 Secrets `AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY` 已在新仓库配置，后两者对应本地 `AKSK.env` 中的 `AK`、`SK`。不要把密钥放进 Actions Variables、工作流 YAML 或仓库文件。该测评使用现有受限 IAM 用户，测试结束删除这两个 Secrets，并轮换或停用这组 AK/SK。
 
-仓库级 Actions 已启用，但 `gh workflow run` 返回 HTTP 422 `Actions has been disabled for this user`，当前无法运行 CI/CD。账号所有者完成 [GitHub Support](https://support.github.com/contact) 所需的手机短信验证后，应提供仓库地址、该错误及匿名访问 404 的复现情况，请其检查账号状态并恢复 Actions 与公开可见性。目前短信验证页提示请求次数限制，尚无工单编号。修复后从 Actions 页面手动启动 release workflow，确认 `main` 推送也能触发。工作流先构建并本地测试 `linux/arm64` 的 PHP、Nginx 和备份镜像，随后读取 AWS Secrets、验证 workload Terraform，推送镜像到 ECR，以镜像 digest 作为 Terraform 输入并执行 `apply`。工作流发送发布成功或失败通知。若 AWS 认证本身失效，SNS 通知 job 也无法发送，须查看 Actions 失败状态。
+将代码推送到新仓库 `main` 后，核对自动触发结果，再从 Actions 页面手动启动 release workflow 验证手动发布。工作流先构建并本地测试 `linux/arm64` 的 PHP、Nginx 和备份镜像，随后读取 AWS Secrets、验证 workload Terraform，推送镜像到 ECR，以镜像 digest 作为 Terraform 输入并执行 `apply`。工作流发送发布成功或失败通知。若 AWS 认证本身失效，SNS 通知 job 也无法发送，须查看 Actions 失败状态。截至本次文档更新，新仓库尚无工作流运行记录。
 
-在 Actions 不可用期间，已通过手动路径完成首次发布：三张 `linux/arm64` 镜像本地构建和测试后推送 ECR，取得各自 digest URI，并通过 `workload` 的 `terraform apply` 首次创建 23 项资源。复现时进入 `infra/terraform/workload/`，从 `backend.hcl.example` 复制 `backend.hcl`，设置与 foundation 相同的 bucket，key 改为 workload 的 state key；从 `terraform.tfvars.example` 复制 `terraform.tfvars`，填入 foundation state bucket 及三个真实 ECR digest URI，再执行 `terraform init -backend-config=backend.hcl && terraform plan && terraform apply`。账号限制解除后再用 CI/CD 验证自动发布；本机与 Actions 不应同时修改同一个 state。
+已通过手动路径完成首次发布：三张 `linux/arm64` 镜像本地构建和测试后推送 ECR，取得各自 digest URI，并通过 `workload` 的 `terraform apply` 首次创建 23 项资源。复现时进入 `infra/terraform/workload/`，从 `backend.hcl.example` 复制 `backend.hcl`，设置与 foundation 相同的 bucket，key 改为 workload 的 state key；从 `terraform.tfvars.example` 复制 `terraform.tfvars`，填入 foundation state bucket 及三个真实 ECR digest URI，再执行 `terraform init -backend-config=backend.hcl && terraform plan && terraform apply`。新仓库推送和配置完成后用 CI/CD 验证自动发布；本机与 Actions 不应同时修改同一个 state。
 
 ## 4. 逐项验收
 
@@ -105,4 +105,4 @@ cat /tmp/poper-backup-launch.json
 
 ## 6. 当前进度与剩余验收
 
-已在东京区域应用 `bootstrap` 6 项、`foundation` 88 项、`workload` 首次 23 项；手工镜像构建/ECR 推送/Terraform 发布、ALB 首页与健康检查、手工备份及隔离恢复、临时 Scheduler 备份、AppConfig 动态更新与恢复均已通过。临时 scheduled action 已实测将 ECS 从 1 个任务扩至 2 个健康目标，再缩回 1 个；默认 17:00/18:00 cron 和东京时区已通过 AWS 查询核实，正式窗口尚未观察。应用 `ERROR`、ALB HTTP 500 比例和备份失败告警均已实际进入 `ALARM` 并恢复 `OK`；测试故障路由已关闭。`foundation` 和 `workload` 最终 Terraform 详细计划均为退出码 0、无差异。每天 02:00 正式自动备份、AppConfig 自动回滚、SNS 邮件送达及截图整理仍待验收；两个 SNS 订阅仍为 `PendingConfirmation`。GitHub `main` 已推送，Actions Secrets/Variables 已配置；登录态显示仓库 Public，但匿名账号主页、仓库和 raw 文件返回 404。仓库级 Actions 已启用，`gh workflow run` 却返回 HTTP 422 `Actions has been disabled for this user`。账号已开启 2FA，但 GitHub Support 短信验证页面提示请求次数限制，尚未提交工单；账号所有者稍后须完成验证。没有 GitHub Actions 成功运行记录。详见 [部署证据](deployment-evidence.md)。
+已在东京区域应用 `bootstrap` 6 项、`foundation` 88 项、`workload` 首次 23 项；手工镜像构建/ECR 推送/Terraform 发布、ALB 首页与健康检查、手工备份及隔离恢复、临时 Scheduler 备份、AppConfig 动态更新与恢复均已通过。临时 scheduled action 已实测将 ECS 从 1 个任务扩至 2 个健康目标，再缩回 1 个；默认 17:00/18:00 cron 和东京时区已通过 AWS 查询核实，正式窗口尚未观察。应用 `ERROR`、ALB HTTP 500 比例和备份失败告警均已实际进入 `ALARM` 并恢复 `OK`；测试故障路由已关闭。`foundation` 和 `workload` 最终 Terraform 详细计划均为退出码 0、无差异。每天 02:00 正式自动备份、AppConfig 自动回滚、SNS 邮件送达及截图整理仍待验收；两个 SNS 订阅仍为 `PendingConfirmation`。[新 GitHub 仓库](https://github.com/twink7e/aws-test) 的公开权限与 Actions Secrets/Variables 配置已核实；本次 `main` 推送后需核对匿名代码访问和工作流运行结果。截至本次文档更新，没有 GitHub Actions 成功运行记录。详见 [部署证据](deployment-evidence.md)。

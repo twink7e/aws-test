@@ -14,7 +14,7 @@
 | 东京时间 17:00–17:59 为 2 个任务，其他时间 1 个 | `workload/autoscaling.tf`、`workload/data.tf` | 2026-11-16 以东京时间 13:10/13:13 的一次性定时动作实测：扩容前 desired/running 1/1、上下限 1/1；13:10:49 desired 2/running 1/pending 1、上下限 2/2；13:11:32 running 2 且两个 ALB 目标健康；13:13:22 desired/running 1/1、上下限 1/1。验证了定时扩容和缩容机制；两项 AWS 动作已恢复默认 cron 和 `Asia/Tokyo`，当前上下限与 ECS desired/running 均为 1/1。正式 17:00/18:00 窗口尚未观察。 |
 | RDS PostgreSQL 每日全量 dump 到 S3 | `foundation/database.tf`、`workload/backup.tf`、`backup/` | 手工 Lambda → ECS 备份成功，S3 dump 为 16,664 字节；隔离 PostgreSQL 17 恢复出 9 张表和 3 条 migration 记录。临时 Scheduler 于东京时间 12:52 触发备份任务，退出码 0，S3 再次收到 16,664 字节 dump；之后通过 Terraform 恢复 `cron(0 2 * * ? *)`、`Asia/Tokyo`。正式 02:00 运行仍待观察。 |
 | 备份失败告警 | `workload/backup.tf`、`workload/backup_controller.py`、`workload/monitoring.tf` | 受控任务退出码 1，Lambda 判定 `false`，`BackupFailed` 指标为 1，Alarm 进入 `ALARM`。告警周期从 300 秒改为 60 秒；2026-11-16 11:58:27 UTC+08 已恢复 `OK`。SNS 邮件待验证。 |
-| `main` 推送自动构建 ECR 镜像并发布 ECS | `.github/workflows/release.yml` | 手工镜像构建、ECR 推送、digest 固定和 Terraform 首发已完成；工作流已实现并配置 Secrets/Variables，但 GitHub 返回 HTTP 422 `Actions has been disabled for this user`，没有 Actions 成功运行记录。 |
+| `main` 推送自动构建 ECR 镜像并发布 ECS | `.github/workflows/release.yml` | 手工镜像构建、ECR 推送、digest 固定和 Terraform 首发已完成；工作流代码已实现。新仓库的两个 Secrets 和四个 Variables 已配置；本次 `main` 推送后核对 Actions 运行结果，目前没有成功运行记录。 |
 | 发布成功/失败通知 | `.github/workflows/release.yml`、`foundation/notifications.tf` | 三个受控告警的 CloudWatch action history 均显示 SNS topic action 执行成功；两个邮件订阅仍为 `PendingConfirmation`，邮件未验证。Actions 未运行，发布通知未验证。AWS 认证失败时 SNS job 也可能无法认证，应同时查看 Actions 状态。 |
 | ECS 副本、CPU、内存和 ALB HTTP 状态看板 | `workload/monitoring.tf` | 已配置 Dashboard；ECS/ContainerInsights `RunningTaskCount` 实测 1.0，AWS/ECS `CPUUtilization` 有数据点；看板截图待整理。 |
 | 应用 `ERROR` 告警 | `foundation/observability.tf`、`app/routes/web.php` | 受控测试产生 2 条 `ERROR` 后进入 `ALARM`；告警周期由 300 秒改为 60 秒，2026-11-16 03:53 UTC 恢复 `OK`。测试故障路由已关闭；SNS 邮件尚未验证。 |
@@ -22,4 +22,4 @@
 | 容器 `nofile` 限制 | `workload/ecs.tf`、`workload/backup.tf` | 已在任务定义设置 soft/hard 131072；待运行任务内验证。 |
 | Terraform 可实现性和缩容限制 | `docs/terraform-feasibility.md` | 已逐项说明，ECS 可按计划缩到 1 个任务；RDS 存储不可原地缩小。 |
 | 架构图、资源说明和操作手册 | `docs/architecture.png`、`docs/repository-map.md`、`docs/runbook.md` | 已生成并核对；实际 AWS Console URL 和告警截图待部署后补齐。 |
-| 公开 GitHub 仓库链接与清理 | `README.md`、`docs/runbook.md` | 独立仓库 [fafafafa868888/poper-test](https://github.com/fafafafa868888/poper-test) 已推送 `main`，登录态显示 Public；匿名账号主页、仓库和 raw 文件均返回 404。账号已开启 2FA，但短信验证页提示请求次数限制，尚未提交 GitHub Support 工单；账号所有者稍后须完成验证。演示结束按 workload → foundation → bootstrap 顺序销毁。 |
+| 公开 GitHub 仓库链接与清理 | `README.md`、`docs/runbook.md` | [twink7e/aws-test](https://github.com/twink7e/aws-test) 的公开权限已核实；本次 `main` 推送后核对代码匿名访问和 Actions 运行结果。演示结束按 workload → foundation → bootstrap 顺序销毁。 |

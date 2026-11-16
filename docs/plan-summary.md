@@ -1,6 +1,6 @@
 # 东京区域部署进度与 Terraform 计划
 
-更新日期：2026-11-16。使用本机 `AKSK.env` 确认测评账号身份和东京区域资源。三个 stack 均已执行 `terraform apply`；`workload` 首次发布通过手工构建、ECR 推送和 digest 固定镜像完成。代码已推送 GitHub `main`，Actions Secrets/Variables 已配置；账号级 Actions 限制仍阻止 CI/CD 运行。
+更新日期：2026-11-16。使用本机 `AKSK.env` 确认测评账号身份和东京区域资源。三个 stack 均已执行 `terraform apply`；`workload` 首次发布通过手工构建、ECR 推送和 digest 固定镜像完成。新仓库 [twink7e/aws-test](https://github.com/twink7e/aws-test) 的公开权限已核实，两个 Actions Secrets 和四个 Variables 已配置；本次 `main` 推送后需核对匿名代码访问与工作流运行结果。
 
 | Stack | 检查结果 | 实际动作与待办 |
 | --- | --- | --- |
@@ -14,4 +14,4 @@
 
 应用 `ERROR` 告警在 2 条事件后进入 `ALARM`，并于 2026-11-16 03:53 UTC 恢复 `OK`；ALB 精确 HTTP 500 比例在 89.655% 时进入 `ALARM`，停止测试后恢复 `OK`。受控失败备份任务退出码为 1，Lambda 判定 `false`，`BackupFailed` 指标为 1，告警进入 `ALARM`，随后于 2026-11-16 11:58:27 UTC+08 恢复 `OK`。测试故障路由已关闭，两个路径均返回 404。AppConfig 临时内容 `Live update verified` 无须更改 ECS 任务定义便在首页显示，Terraform 恢复默认后首页再次显示 `Hello from AppConfig`；自动回滚仍待验证。扩缩容测试并恢复默认表达式后，`foundation` 与 `workload` 最终详细计划均以退出码 0 结束，无差异。完整观察结果见 [部署证据](deployment-evidence.md)。
 
-定时扩缩容已用东京时间 13:10/13:13 的一次性动作验证：04:10:49 UTC 观察到 desired 2/running 1/pending 1、容量上下限 2/2；04:11:32 UTC running 2 且两个 ALB 目标健康；04:13:22 UTC desired/running 1/1、上下限 1/1。随后两项 AWS scheduled action 已核对为 `cron(0 17 * * ? *)` / `cron(0 18 * * ? *)`、`Asia/Tokyo`，当前容量上下限及 ECS desired/running 均为 1/1。正式 17:00/18:00 的实际窗口、SNS 邮件送达及 GitHub Actions 发布仍需验证。GitHub 仓库已推送 `main`，登录态显示 Public，但匿名账号主页、仓库和 raw 文件返回 404；仓库级 Actions 已启用，`gh workflow run` 返回 HTTP 422 `Actions has been disabled for this user`。账号已开启 2FA，但 GitHub Support 手机短信验证页提示请求次数限制，尚无工单；账号所有者稍后须完成验证，再请求复核账号可见性和 Actions。持续计费的基础资源包括 RDS 和 ALB；应用 Fargate 平时运行一个最小任务，默认配置在 17:00–17:59 运行两个，备份任务仅执行时运行。评估完成后按 [运行手册](runbook.md) 销毁。
+定时扩缩容已用东京时间 13:10/13:13 的一次性动作验证：04:10:49 UTC 观察到 desired 2/running 1/pending 1、容量上下限 2/2；04:11:32 UTC running 2 且两个 ALB 目标健康；04:13:22 UTC desired/running 1/1、上下限 1/1。随后两项 AWS scheduled action 已核对为 `cron(0 17 * * ? *)` / `cron(0 18 * * ? *)`、`Asia/Tokyo`，当前容量上下限及 ECS desired/running 均为 1/1。正式 17:00/18:00 的实际窗口、SNS 邮件送达及 GitHub Actions 发布仍需验证。新 GitHub 仓库的 Actions Secrets/Variables 已配置；本次 `main` 推送后需核对匿名代码访问和工作流运行结果。持续计费的基础资源包括 RDS 和 ALB；应用 Fargate 平时运行一个最小任务，默认配置在 17:00–17:59 运行两个，备份任务仅执行时运行。评估完成后按 [运行手册](runbook.md) 销毁。

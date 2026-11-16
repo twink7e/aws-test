@@ -4,7 +4,7 @@
 
 当前阶段是**云端验收**。AWS 东京区域已应用 `bootstrap` 6 项、`foundation` 88 项和 `workload` 首次 23 项资源；三张 `linux/arm64` 镜像已手工构建、推送 ECR，并以 digest 完成 Terraform 发布。ALB 首页与 `/healthz` 均返回 200；手工备份的 dump 已在隔离的 PostgreSQL 17 实例恢复，临时 Scheduler 也成功触发备份。临时定时动作实测 ECS 从 1 个任务扩至 2 个健康目标，再缩回 1 个；两项动作已恢复为东京时间 17:00/18:00 的每日表达式。应用 `ERROR`、ALB HTTP 500 比例及备份失败告警均已受控触发，随后全部恢复 `OK`。AppConfig 临时内容已在首页动态显示，无须更改 ECS 任务定义，默认配置已通过 Terraform 恢复且再次显示在首页。测试故障路由已关闭；`foundation` 和 `workload` 最终详细计划均无变更。
 
-代码已推送至独立的 [fafafafa868888/poper-test](https://github.com/fafafafa868888/poper-test)，Actions Secrets/Variables 已配置，但 GitHub 账号级限制使工作流无法运行：仓库级 Actions 已启用，`gh workflow run` 返回 HTTP 422 `Actions has been disabled for this user`；登录态显示 Public，匿名账号主页、仓库和 raw 文件仍返回 404。GitHub Support 工单尚未提交：账号已开启 2FA，但手机号短信验证页提示请求次数限制，账号所有者稍后仍需完成短信验证。两个 SNS 订阅仍待确认，不能证明邮件送达。不要把 AWS 凭证、Terraform state、数据库密码或评估题原件提交到公开仓库。
+新仓库 [twink7e/aws-test](https://github.com/twink7e/aws-test) 的公开权限已核实，两个 Actions Secrets 和四个 Variables 已配置。本次迁移的 `main` 推送完成后，还需核对代码的匿名访问与 Actions 运行结果；截至本次文档更新，工作流尚未实跑。AWS 的手工部署和实测结果不受仓库迁移影响。两个 SNS 订阅仍待确认，不能证明邮件送达。不要把 AWS 凭证、Terraform state、数据库密码或评估题原件提交到公开仓库。
 
 ## 完成标准
 
@@ -56,12 +56,12 @@ ALB 必须连接两个不同 AZ 的子网，因此网络中仍保留两个公有
 
 ## 需要提供的输入
 
-AWS 东京区域凭证已在本机 `AKSK.env`，告警别名已确定为 `zhangsan`，首页使用非敏感的 `DEMO_MESSAGE` 默认值。独立 GitHub 仓库及 Actions 配置已建立；后续仍需要：
+AWS 东京区域凭证已在本机 `AKSK.env`，告警别名已确定为 `zhangsan`，首页使用非敏感的 `DEMO_MESSAGE` 默认值。新 GitHub 仓库公开权限与 Actions 配置已就绪；后续仍需要：
 
 | 输入 | 用途 | 安全方式 |
 | --- | --- | --- |
-| GitHub 账号可见性与 Actions | 让面试官无需登录查看代码，并运行自动发布。 | 匿名账号主页、仓库和 raw 文件均返回 404；仓库级 Actions 已启用，但手动触发返回 HTTP 422 `Actions has been disabled for this user`。账号已开启 2FA；短信验证页提示请求次数限制，尚无 Support 工单。账号所有者稍后完成短信验证，再提交 404/422 证据请求复核。 |
-| Actions 中的 AWS AK/SK Secrets | 让工作流发布镜像和执行 workload Terraform。 | 已从本地 `AKSK.env` 配置到新仓库的 Secrets，未写入 Git。测试结束后删除 Secrets 并轮换/停用该 AK/SK。 |
+| 代码推送与 Actions 实跑 | 让面试官无需登录查看代码，并验证自动发布。 | [新仓库](https://github.com/twink7e/aws-test) 的公开权限已核实；本次 `main` 推送后核对匿名代码访问、自动触发及手动发布结果。 |
+| Actions Variables 与 AWS AK/SK Secrets | 让工作流发布镜像和执行 workload Terraform。 | 新仓库的两个 Secrets 和四个 Variables 已配置；密钥不得写入 Git。测试结束后删除 Secrets 并轮换/停用该 AK/SK。 |
 | 两位告警收件人的订阅确认 | SNS 发布邮件前必须分别确认。 | 两个订阅仍为 `PendingConfirmation`；收件人须点击 AWS 确认邮件。当前已验证 CloudWatch 告警触发，未验证邮件送达。 |
 | 可选域名与同区域 ACM 证书 ARN | 如果要 HTTPS 和友好网址。 | 没有证书时使用 ALB 提供的 HTTP DNS 名称。 |
 

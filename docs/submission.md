@@ -6,9 +6,9 @@
 
 | 项目 | 链接 | 当前状态 |
 | --- | --- | --- |
-| 全部代码 | [fafafafa868888/poper-test](https://github.com/fafafafa868888/poper-test) | `main` 已推送；登录态显示 Public，但匿名访问账号主页、仓库和 raw 文件仍返回 404，**尚不能作为已验证的公开交付地址**。 |
+| 全部代码 | [twink7e/aws-test](https://github.com/twink7e/aws-test) | 新仓库的公开权限已核实；本次 `main` 推送后核对代码的匿名访问。 |
 | Laravel 首页 | [ALB HTTP 地址](http://poper-test-alb-565988149.ap-northeast-1.elb.amazonaws.com/) | 首页与 `/healthz` 已实测 HTTP 200；测试环境使用 HTTP。 |
-| CI/CD 工作流 | [release.yml](https://github.com/fafafafa868888/poper-test/actions/workflows/release.yml) | 配置已提交，但账号限制使 GitHub Actions 返回 HTTP 422 `Actions has been disabled for this user`；没有成功运行记录。 |
+| CI/CD 工作流 | [release.yml](../.github/workflows/release.yml) | 工作流代码已在本地，新仓库两个 Secrets 和四个 Variables 已配置；本次 `main` 推送后核对实际运行结果，截至本次文档更新没有成功运行记录。 |
 
 ## AWS 平台功能入口
 
@@ -39,11 +39,11 @@
 | 核心操作流程 | [部署、验收、清理手册](runbook.md) | 包含 Terraform 部署、镜像发布、备份恢复及清理步骤。 |
 | 告警触发方法 | [运行手册：告警触发](runbook.md#告警触发) | 说明应用 `ERROR`、ALB 500 比例和备份失败的受控触发方法；测试路由已关闭。 |
 | 触发后的实际记录 | [部署与验收记录](deployment-evidence.md)、[逐项验收清单](acceptance.md) | 三种告警均实测进入 `ALARM` 并恢复 `OK`，CloudWatch action history 显示 SNS topic action 执行成功。 |
-| 告警触发后的截图 | 待补 | 仓库目前**没有告警截图**。需要从 CloudWatch 历史记录或重新受控触发后截取告警状态、时间和资源名；不得用文字记录冒充截图。 |
+| 告警触发后的截图 | [备份失败告警 History 截图](evidence/cloudwatch-backup-failed-history.png) | 备份告警截图已具备：`poper-test-backup-failed` 在 2026-11-16 03:47:32 UTC 从 `OK` 进入 `ALARM`，同一时刻 SNS topic action 执行成功，并于 03:58:27 UTC 恢复 `OK`。应用 `ERROR`、ALB 精确 HTTP 500 告警截图仍待上传；截图不证明邮件送达。 |
 
 ## 提交前仍需完成
 
-1. 恢复仓库的匿名可见性，并实际运行 GitHub Actions；目前 GitHub Support 工单尚未提交，账号已开启 2FA，但短信验证页提示请求次数限制。由账号所有者稍后完成验证并提交 404/422 的复现证据。
+1. 完成本次 `main` 推送后，核对 [新仓库](https://github.com/twink7e/aws-test) 的匿名代码访问及 `release` 工作流运行结果；两个 Secrets 和四个 Variables 已配置，截至本次文档更新没有工作流运行记录。
 2. 两位收件人确认 SNS 邮件订阅后，重新触发通知并保存邮件送达证据；当前仅验证了 CloudWatch → SNS topic action，没有邮件送达记录。
-3. 补齐原题明确要求的告警触发后截图，以及需要交付的 AWS Console 截图；检查截图没有密钥、密码、私有配置或账号凭据。
+3. 已有备份失败告警 History 截图；继续补齐应用 `ERROR`、ALB 精确 HTTP 500 告警触发后截图，以及需要交付的其他 AWS Console 截图。检查截图没有密钥、密码、私有配置或账号凭据。
 4. 按原题要求将本页、文档、架构图和代码整理为可发送的交付包，或发布为可匿名打开的在线文档。正式东京时间 17:00/18:00 的扩缩容窗口、02:00 的每日备份窗口仍待观察；临时调度动作已验证机制。
