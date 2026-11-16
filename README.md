@@ -2,9 +2,9 @@
 
 本仓库是面试题的可复现交付物。目标是在 AWS 东京区域，用 Terraform 声明全部云资源；用 GitHub Actions 构建 Docker 镜像并发布 Laravel 13 / PHP 8.4 应用；通过 CloudWatch 和 SNS 提供可验证的日志、告警和通知；每日把 PostgreSQL 全量逻辑备份写入 S3。
 
-当前阶段是**云端验收**。AWS 东京区域已应用 `bootstrap` 6 项、`foundation` 88 项和 `workload` 首次 23 项资源；三张 `linux/arm64` 镜像已手工构建、推送 ECR，并以 digest 完成 Terraform 发布。ALB 首页与 `/healthz` 均返回 200；手工备份的 dump 已在隔离的 PostgreSQL 17 实例恢复，临时 Scheduler 也成功触发备份。临时定时动作实测 ECS 从 1 个任务扩至 2 个健康目标，再缩回 1 个；两项动作已恢复为东京时间 17:00/18:00 的每日表达式。应用 `ERROR`、ALB HTTP 500 比例及备份失败告警均已受控触发，随后全部恢复 `OK`。AppConfig 临时内容已在首页动态显示，无须更改 ECS 任务定义，默认配置已通过 Terraform 恢复且再次显示在首页。测试故障路由已关闭；`foundation` 和 `workload` 最终详细计划均无变更。
+当前阶段是**云端验收**。AWS 东京区域已应用 `bootstrap` 6 项、`foundation` 88 项和 `workload` 首次 23 项资源；三张 `linux/arm64` 镜像已手工构建、推送 ECR，并以 digest 完成 Terraform 首发，随后由 GitHub Actions 自动构建和更新 ECS。ALB 首页与 `/healthz` 均返回 200；手工备份的 dump 已在隔离的 PostgreSQL 17 实例恢复，临时 Scheduler 也成功触发备份。临时定时动作实测 ECS 从 1 个任务扩至 2 个健康目标，再缩回 1 个；两项动作已恢复为东京时间 17:00/18:00 的每日表达式。应用 `ERROR`、ALB HTTP 500 比例及备份失败告警均已受控触发，随后全部恢复 `OK`。AppConfig 临时内容已在首页动态显示，无须更改 ECS 任务定义，默认配置已通过 Terraform 恢复且再次显示在首页。测试故障路由已关闭。
 
-新仓库 [twink7e/aws-test](https://github.com/twink7e/aws-test) 的公开权限已核实，两个 Actions Secrets 和四个 Variables 已配置。本次迁移的 `main` 推送完成后，还需核对代码的匿名访问与 Actions 运行结果；截至本次文档更新，工作流尚未实跑。AWS 的手工部署和实测结果不受仓库迁移影响。两个 SNS 订阅仍待确认，不能证明邮件送达。不要把 AWS 凭证、Terraform state、数据库密码或评估题原件提交到公开仓库。
+公开仓库为 [twink7e/aws-test](https://github.com/twink7e/aws-test)，匿名访问仓库和 README 均返回 HTTP 200。两个 Actions Secrets 和四个 Variables 已配置。[首次 push run 43813162697](https://github.com/twink7e/aws-test/actions/runs/43813162697) 与改用原生 ARM runner 后的 [run 43815555640](https://github.com/twink7e/aws-test/actions/runs/43815555640) 均成功：测试、三张镜像推送 ECR、Terraform 更新 ECS，以及发布结果 SNS topic action 全部通过。第二次运行部署了 `poper-test-web:5`，PHP-FPM 镜像构建由首次 QEMU 的 13 分 23 秒缩至 1 分 27 秒。一条 SNS 邮件订阅已确认，另一条仍为 `PendingConfirmation`；目前没有收件箱送达证据。不要把 AWS 凭证、Terraform state、数据库密码或评估题原件提交到公开仓库。
 
 ## 完成标准
 
@@ -29,6 +29,7 @@
 | `docs/runbook.md` | 从账号准备到上线、验收、恢复、清理的逐步操作。 |
 | `docs/acceptance.md` | 面试题逐项验收清单，标明本地实现与云端证据的状态。 |
 | `docs/deployment-evidence.md` | 东京区域手工部署、应用访问、备份恢复与告警的实测记录。 |
+| `docs/evidence/` | CloudWatch 告警触发、SNS action 与恢复的时间线，以及已取得的备份失败告警截图。 |
 | `docs/submission.md` | 按原题提交格式汇总仓库、AWS Console 入口、文档、告警演示和待补证据。 |
 | `docs/terraform-feasibility.md` | 逐项说明 Terraform 可实现的操作、扩缩容边界和账号权限约束。 |
 | `docs/plan-summary.md` | 东京测评账号的 Terraform 应用进度与待云端验收项。 |
@@ -54,15 +55,13 @@
 
 ALB 必须连接两个不同 AZ 的子网，因此网络中仍保留两个公有子网；这不代表 RDS 开启 Multi-AZ，也不代表 ECS 平时有两个应用副本。RDS 部署在隔离的私有子网；Fargate 任务部署在公有子网并分配公有 IP，用于拉取 ECR 镜像和访问 AWS API，入站安全组只接受来自 ALB 的请求。生产环境如需更强隔离，可改为私有任务加 VPC endpoints 或 NAT，并重新评估费用。
 
-## 需要提供的输入
+## 仍需完成的外部条件
 
-AWS 东京区域凭证已在本机 `AKSK.env`，告警别名已确定为 `zhangsan`，首页使用非敏感的 `DEMO_MESSAGE` 默认值。新 GitHub 仓库公开权限与 Actions 配置已就绪；后续仍需要：
+AWS 东京区域凭证已在本机 `AKSK.env`，告警别名已确定为 `zhangsan`，首页使用非敏感的 `DEMO_MESSAGE` 默认值。新 GitHub 仓库已公开可访问，Actions 自动发布已通过；后续仍需要：
 
 | 输入 | 用途 | 安全方式 |
 | --- | --- | --- |
-| 代码推送与 Actions 实跑 | 让面试官无需登录查看代码，并验证自动发布。 | [新仓库](https://github.com/twink7e/aws-test) 的公开权限已核实；本次 `main` 推送后核对匿名代码访问、自动触发及手动发布结果。 |
-| Actions Variables 与 AWS AK/SK Secrets | 让工作流发布镜像和执行 workload Terraform。 | 新仓库的两个 Secrets 和四个 Variables 已配置；密钥不得写入 Git。测试结束后删除 Secrets 并轮换/停用该 AK/SK。 |
-| 两位告警收件人的订阅确认 | SNS 发布邮件前必须分别确认。 | 两个订阅仍为 `PendingConfirmation`；收件人须点击 AWS 确认邮件。当前已验证 CloudWatch 告警触发，未验证邮件送达。 |
+| 剩余告警收件人的订阅确认 | SNS 向该邮箱投递前须确认订阅。 | 一条订阅已确认，另一条仍为 `PendingConfirmation`；待确认的收件人须点击 AWS 确认邮件。当前已验证 CloudWatch 告警触发与 Actions 通知向 SNS topic 发布，未验证收件箱送达。 |
 | 可选域名与同区域 ACM 证书 ARN | 如果要 HTTPS 和友好网址。 | 没有证书时使用 ALB 提供的 HTTP DNS 名称。 |
 
 云资源参数通过 `terraform.tfvars`、`backend.hcl` 传入；AWS 密钥留在本地 `AKSK.env`，发布时另存入 GitHub Actions Secrets，均不进入受版本控制的文件。示例文件可复制后填写；实际变量文件被 `.gitignore` 排除。部署与销毁命令见 [运行手册](docs/runbook.md)。
@@ -85,4 +84,4 @@ AWS 东京区域凭证已在本机 `AKSK.env`，告警别名已确定为 `zhangs
 
 采用自然语言驱动的人机协作，包含 Vibe Coding 式的快速迭代：用户确定东京区域、最小规格、成本和安全边界，Codex 落盘实现并执行检查，结果再按 Terraform 计划、容器冒烟和 AWS 实测逐项核对。关键提示词示例（原需求意译）：「用 Terraform 落盘东京区域资源，按最小规格部署 Laravel 13/PHP 8.4 到 ECS Fargate，配置定时扩缩容、数据库备份和 CloudWatch/SNS 告警，并写清每个文件的用途。」工作流示例：需求拆解 → 三层 Terraform stack → `fmt/validate/plan` → Docker 测试 → AWS 部署 → 告警与恢复演练 → 记录证据。
 
-静态检查、本地容器测试和已观察到的 AWS 运行结果分别记录在 [验收清单](docs/acceptance.md) 与 [部署证据](docs/deployment-evidence.md)；GitHub Actions 运行和邮件送达尚未验证。
+静态检查、本地容器测试、GitHub Actions 两次成功运行和已观察到的 AWS 结果分别记录在 [验收清单](docs/acceptance.md) 与 [部署证据](docs/deployment-evidence.md)；邮件送达尚未验证。

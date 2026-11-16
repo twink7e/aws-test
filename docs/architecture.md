@@ -81,8 +81,8 @@ be preferable.
   them to Laravel over the task-local HTTP endpoint. AppConfig values are
   treated as dynamic configuration, so a release does not require changing
   process environment variables or baking values into an image.
-- GitHub Actions runs on a GitHub-hosted runner owned by the new ordinary
-  GitHub account. AWS access keys are stored in repository Actions Secrets.
+- GitHub Actions runs on a GitHub-hosted ARM runner for `twink7e/aws-test`.
+  AWS access keys are stored in repository Actions Secrets.
   The workflow builds the Docker images, pushes them to ECR,
   and runs Terraform for the workload stack with immutable image references.
   It waits for ECS service stability and checks the active task definition

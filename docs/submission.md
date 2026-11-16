@@ -6,9 +6,9 @@
 
 | 项目 | 链接 | 当前状态 |
 | --- | --- | --- |
-| 全部代码 | [twink7e/aws-test](https://github.com/twink7e/aws-test) | 新仓库的公开权限已核实；本次 `main` 推送后核对代码的匿名访问。 |
+| 全部代码 | [twink7e/aws-test](https://github.com/twink7e/aws-test) | `main` 已推送；匿名仓库和 README 均返回 HTTP 200。提交历史中常见 AWS key、GitHub PAT、私钥模式和敏感路径扫描未命中。 |
 | Laravel 首页 | [ALB HTTP 地址](http://poper-test-alb-565988149.ap-northeast-1.elb.amazonaws.com/) | 首页与 `/healthz` 已实测 HTTP 200；测试环境使用 HTTP。 |
-| CI/CD 工作流 | [release.yml](../.github/workflows/release.yml) | 工作流代码已在本地，新仓库两个 Secrets 和四个 Variables 已配置；本次 `main` 推送后核对实际运行结果，截至本次文档更新没有成功运行记录。 |
+| CI/CD 工作流 | [release.yml](https://github.com/twink7e/aws-test/actions/workflows/release.yml)、[首次 run 43813162697](https://github.com/twink7e/aws-test/actions/runs/43813162697)、[原生 ARM run 43815555640](https://github.com/twink7e/aws-test/actions/runs/43815555640) | 两次 push run 均成功；测试、三张镜像推送 ECR、Terraform apply、ECS 稳定性检查和 SNS 发布结果步骤通过。第二次部署 `poper-test-web:5`。 |
 
 ## AWS 平台功能入口
 
@@ -28,7 +28,7 @@
 | 访问、应用、备份日志 | [CloudWatch Logs](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1) | 在 Log groups 中查 `/poper-test/app`、`/poper-test/web`、`/poper-test/backup` 及 ALB 日志组。 |
 | ECS / ALB 指标与看板 | [CloudWatch Dashboards](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1) | 在 Dashboards 中查 `poper-test-operations`；底层 RunningTaskCount、CPU 指标已有数据。 |
 | 应用、ALB、备份告警 | [CloudWatch Alarms](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1) | 在 Alarms 中查 `poper-test-application-error`、`poper-test-alb-exact-500-ratio`、`poper-test-backup-failed` 及 action history。 |
-| 告警与发布通知 | [SNS](https://console.aws.amazon.com/sns/v3/home?region=ap-northeast-1) | topic `poper-test-alerts`；两个邮件订阅仍为 `PendingConfirmation`。 |
+| 告警与发布通知 | [SNS](https://console.aws.amazon.com/sns/v3/home?region=ap-northeast-1) | topic `poper-test-alerts`；一条邮件订阅已确认，另一条仍为 `PendingConfirmation`。无收件箱送达证据。 |
 | 运行时密钥 | [Secrets Manager](https://console.aws.amazon.com/secretsmanager/home?region=ap-northeast-1) | RDS 托管密码与 Laravel `APP_KEY`；只核对资源存在和权限，不展示值。 |
 
 ## 文档、架构图与告警演示
@@ -38,12 +38,11 @@
 | 架构图（图片） | [架构图](architecture.png)、[架构说明](architecture.md) | 已生成。 |
 | 核心操作流程 | [部署、验收、清理手册](runbook.md) | 包含 Terraform 部署、镜像发布、备份恢复及清理步骤。 |
 | 告警触发方法 | [运行手册：告警触发](runbook.md#告警触发) | 说明应用 `ERROR`、ALB 500 比例和备份失败的受控触发方法；测试路由已关闭。 |
-| 触发后的实际记录 | [部署与验收记录](deployment-evidence.md)、[逐项验收清单](acceptance.md) | 三种告警均实测进入 `ALARM` 并恢复 `OK`，CloudWatch action history 显示 SNS topic action 执行成功。 |
-| 告警触发后的截图 | [备份失败告警 History 截图](evidence/cloudwatch-backup-failed-history.png) | 备份告警截图已具备：`poper-test-backup-failed` 在 2026-11-16 03:47:32 UTC 从 `OK` 进入 `ALARM`，同一时刻 SNS topic action 执行成功，并于 03:58:27 UTC 恢复 `OK`。应用 `ERROR`、ALB 精确 HTTP 500 告警截图仍待上传；截图不证明邮件送达。 |
+| 触发后的实际记录 | [告警历史时间线](evidence/cloudwatch-alarm-history.md)、[部署与验收记录](deployment-evidence.md)、[逐项验收清单](acceptance.md) | 三种告警均实测进入 `ALARM` 并恢复 `OK`，CloudWatch action history 显示 SNS topic action 执行成功；八个项目告警目前均为 `OK`。 |
+| 告警触发后的截图 | [备份失败告警 History 截图](evidence/cloudwatch-backup-failed-history.png) | 备份告警截图已具备：`poper-test-backup-failed` 在 2026-11-16 03:47:32 UTC 从 `OK` 进入 `ALARM`，同一时刻 SNS topic action 执行成功，并于 03:58:27 UTC 恢复 `OK`。应用 `ERROR`、ALB 精确 HTTP 500 告警已由 Console/CLI 验证，但两张截图文件尚未保存；截图不证明邮件送达。 |
 
 ## 提交前仍需完成
 
-1. 完成本次 `main` 推送后，核对 [新仓库](https://github.com/twink7e/aws-test) 的匿名代码访问及 `release` 工作流运行结果；两个 Secrets 和四个 Variables 已配置，截至本次文档更新没有工作流运行记录。
-2. 两位收件人确认 SNS 邮件订阅后，重新触发通知并保存邮件送达证据；当前仅验证了 CloudWatch → SNS topic action，没有邮件送达记录。
-3. 已有备份失败告警 History 截图；继续补齐应用 `ERROR`、ALB 精确 HTTP 500 告警触发后截图，以及需要交付的其他 AWS Console 截图。检查截图没有密钥、密码、私有配置或账号凭据。
-4. 按原题要求将本页、文档、架构图和代码整理为可发送的交付包，或发布为可匿名打开的在线文档。正式东京时间 17:00/18:00 的扩缩容窗口、02:00 的每日备份窗口仍待观察；临时调度动作已验证机制。
+1. 剩余一位收件人确认 SNS 邮件订阅后，重新触发通知并保存邮件送达证据；目前已验证 CloudWatch 告警和 Actions 发布结果均向 SNS topic 发出动作，没有收件箱送达记录。
+2. 已有备份失败告警 History 截图；继续补齐应用 `ERROR`、ALB 精确 HTTP 500 告警触发后截图，以及需要交付的其他 AWS Console 截图。检查截图没有密钥、密码或私有配置。
+3. 按原题要求将本页、文档、架构图和代码整理为可发送的交付包，或发布为可匿名打开的在线文档。正式东京时间 17:00/18:00 的扩缩容窗口、02:00 的每日备份窗口，以及 AppConfig 自动回滚仍待观察；临时调度动作已验证机制。

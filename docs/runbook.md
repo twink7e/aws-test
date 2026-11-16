@@ -8,8 +8,8 @@
 
 - AWS CLI 使用本机仓库根目录的 `AKSK.env`。先从根目录运行 `source ./AKSK.env`，再运行 `export AWS_ACCESS_KEY_ID="$AK" AWS_SECRET_ACCESS_KEY="$SK" AWS_DEFAULT_REGION=ap-northeast-1`，最后运行 `aws sts get-caller-identity`，确认是测评账号。`AKSK.env` 已被 Git 忽略，不要把其内容复制到文档或提交仓库。
 - Terraform 版本满足各 stack 的 `versions.tf`；Docker Buildx 可构建 `linux/arm64`；有权限在 GitHub 仓库设置 Actions variables。
-- [twink7e/aws-test](https://github.com/twink7e/aws-test) 的公开权限已核实，Actions Variables/Secrets 已配置。本次 `main` 推送后核对匿名代码访问和工作流运行结果。GitHub Actions 使用托管 runner，不需要新建常驻 CI 服务器。
-- 告警别名已定为 `zhangsan`：`minghe.yin+zhangsan@poper.co`、`te.qi+zhangsan@poper.co`。两个 SNS 订阅目前仍为 `PendingConfirmation`；两位收件人都要点击确认邮件，否则 SNS 不会投递。
+- [twink7e/aws-test](https://github.com/twink7e/aws-test) 匿名仓库和 README 均返回 HTTP 200；两个 Actions Secrets 和四个 Variables 已配置。[首次 run 43813162697](https://github.com/twink7e/aws-test/actions/runs/43813162697) 与 [原生 ARM run 43815555640](https://github.com/twink7e/aws-test/actions/runs/43815555640) 均成功。GitHub Actions 使用托管 runner，不需要新建常驻 CI 服务器。
+- 告警别名已定为 `zhangsan`：`minghe.yin+zhangsan@poper.co`、`te.qi+zhangsan@poper.co`。一条 SNS 邮件订阅已确认，另一条仍为 `PendingConfirmation`；待确认的收件人须点击确认邮件，否则该邮箱不会收到 SNS 通知。
 
 建议同时设置 `AWS_REGION=ap-northeast-1`，并在每次 `apply` 前重新确认账号身份。仓库里的 `*.example` 文件只含示例值，实际的 `terraform.tfvars`、`backend.hcl` 均被 `.gitignore` 排除。
 
@@ -58,9 +58,9 @@ terraform output
 
 上述四个 Variables 和两个 Secrets `AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY` 已在新仓库配置，后两者对应本地 `AKSK.env` 中的 `AK`、`SK`。不要把密钥放进 Actions Variables、工作流 YAML 或仓库文件。该测评使用现有受限 IAM 用户，测试结束删除这两个 Secrets，并轮换或停用这组 AK/SK。
 
-将代码推送到新仓库 `main` 后，核对自动触发结果，再从 Actions 页面手动启动 release workflow 验证手动发布。工作流先构建并本地测试 `linux/arm64` 的 PHP、Nginx 和备份镜像，随后读取 AWS Secrets、验证 workload Terraform，推送镜像到 ECR，以镜像 digest 作为 Terraform 输入并执行 `apply`。工作流发送发布成功或失败通知。若 AWS 认证本身失效，SNS 通知 job 也无法发送，须查看 Actions 失败状态。截至本次文档更新，新仓库尚无工作流运行记录。
+`main` 上首次 [release run 43813162697](https://github.com/twink7e/aws-test/actions/runs/43813162697) 和原生 ARM runner 的 [run 43815555640](https://github.com/twink7e/aws-test/actions/runs/43815555640) 均已成功。第二次运行由 release commit `0d91b5d` 触发；PHP-FPM 镜像构建耗时 1 分 27 秒，首次 QEMU 运行耗时 13 分 23 秒。工作流先构建并本地测试 `linux/arm64` 的 PHP、Nginx 和备份镜像，随后读取 AWS Secrets、验证 workload Terraform，推送镜像到 ECR，以镜像 digest 作为 Terraform 输入并执行 `apply`；第二次部署 `poper-test-web:5`，ECS 稳定性检查通过。两次成功运行的 `notify` job 均通过；失败通知分支尚未实测。若 AWS 认证本身失效，SNS 通知 job 也可能无法认证，须同时查看 Actions 失败状态。
 
-已通过手动路径完成首次发布：三张 `linux/arm64` 镜像本地构建和测试后推送 ECR，取得各自 digest URI，并通过 `workload` 的 `terraform apply` 首次创建 23 项资源。复现时进入 `infra/terraform/workload/`，从 `backend.hcl.example` 复制 `backend.hcl`，设置与 foundation 相同的 bucket，key 改为 workload 的 state key；从 `terraform.tfvars.example` 复制 `terraform.tfvars`，填入 foundation state bucket 及三个真实 ECR digest URI，再执行 `terraform init -backend-config=backend.hcl && terraform plan && terraform apply`。新仓库推送和配置完成后用 CI/CD 验证自动发布；本机与 Actions 不应同时修改同一个 state。
+已通过手动路径完成首次发布：三张 `linux/arm64` 镜像本地构建和测试后推送 ECR，取得各自 digest URI，并通过 `workload` 的 `terraform apply` 首次创建 23 项资源。复现时进入 `infra/terraform/workload/`，从 `backend.hcl.example` 复制 `backend.hcl`，设置与 foundation 相同的 bucket，key 改为 workload 的 state key；从 `terraform.tfvars.example` 复制 `terraform.tfvars`，填入 foundation state bucket 及三个真实 ECR digest URI，再执行 `terraform init -backend-config=backend.hcl && terraform plan && terraform apply`。后续自动发布已验证；本机与 Actions 不应同时修改同一个 state。每次手工计划应使用当前已发布的镜像 digest，旧的本地 `terraform.tfvars` 可能提出回退镜像的变更。
 
 ## 4. 逐项验收
 
@@ -93,7 +93,7 @@ cat /tmp/poper-backup-launch.json
 
 ### 告警触发
 
-受控测试已经使应用 `ERROR` 告警在 2 条事件后进入 `ALARM`，ALB HTTP 500 精确比例告警在 89.655% 时进入 `ALARM`；测试故障路由已关闭，两个路径均返回 404，ALB 告警恢复 `OK`，应用告警于 2026-11-16 03:53 UTC 恢复 `OK`。受控备份失败任务退出码为 1，Lambda 判定 `false`，`BackupFailed` 指标为 1，备份失败告警进入 `ALARM`，并于 2026-11-16 11:58:27 UTC+08 恢复 `OK`。应用错误与备份失败告警的周期均由 300 秒改为 60 秒；分别通过 foundation 和 workload Terraform 各修改 1 项、无新增或销毁。三个告警的 action history 均显示 SNS topic action 成功执行，但两个订阅仍为 `PendingConfirmation`，无法证明邮件送达；收件人确认后须重新触发并保存邮件证据。复现时可暂时启用 workload 变量 `enable_demo_failure_routes`，用受控测试路由产生 JSON `ERROR` 和多次 HTTP 500，再访问正常首页制造对照请求。CloudWatch metric filter 与 Alarm 一般按分钟级窗口评估；HTTP 500 比例告警需要在同一窗口内超过 10%。演示结束立即关闭测试路由并重新发布。备份失败告警可以在 ECS 控制台手工启动备份任务，并用容器 override 把 `DB_HOST` 临时改成无效主机；`STOPPED` 事件应进入控制器并通知 SNS。测试后恢复参数，不要改动生产数据。记录 CloudWatch Alarm 状态、SNS 邮件、ECS 任务和 S3 对象截图作为交付证据。
+受控测试已经使应用 `ERROR` 告警在 2 条事件后进入 `ALARM`，ALB HTTP 500 精确比例告警在 89.655% 时进入 `ALARM`；测试故障路由已关闭，两个路径均返回 404，ALB 告警恢复 `OK`，应用告警于 2026-11-16 03:53 UTC 恢复 `OK`。受控备份失败任务退出码为 1，Lambda 判定 `false`，`BackupFailed` 指标为 1，备份失败告警进入 `ALARM`，并于 2026-11-16 11:58:27 UTC+08 恢复 `OK`。应用错误与备份失败告警的周期均由 300 秒改为 60 秒；分别通过 foundation 和 workload Terraform 各修改 1 项、无新增或销毁。三个告警的 action history 均显示 SNS topic action 成功执行，详细时间见[告警历史记录](evidence/cloudwatch-alarm-history.md)，但仅一条订阅已确认，另一条仍为 `PendingConfirmation`，目前未保存收件箱送达证据；待剩余收件人确认后须重新触发并保存邮件证据。复现时可暂时启用 workload 变量 `enable_demo_failure_routes`，用受控测试路由产生 JSON `ERROR` 和多次 HTTP 500，再访问正常首页制造对照请求。CloudWatch metric filter 与 Alarm 一般按分钟级窗口评估；HTTP 500 比例告警需要在同一窗口内超过 10%。演示结束立即关闭测试路由并重新发布。备份失败告警可以在 ECS 控制台手工启动备份任务，并用容器 override 把 `DB_HOST` 临时改成无效主机；`STOPPED` 事件应进入控制器并通知 SNS。测试后恢复参数，不要改动生产数据。记录 CloudWatch Alarm 状态、SNS 邮件、ECS 任务和 S3 对象截图作为交付证据。
 
 ### AppConfig 发布
 
@@ -105,4 +105,4 @@ cat /tmp/poper-backup-launch.json
 
 ## 6. 当前进度与剩余验收
 
-已在东京区域应用 `bootstrap` 6 项、`foundation` 88 项、`workload` 首次 23 项；手工镜像构建/ECR 推送/Terraform 发布、ALB 首页与健康检查、手工备份及隔离恢复、临时 Scheduler 备份、AppConfig 动态更新与恢复均已通过。临时 scheduled action 已实测将 ECS 从 1 个任务扩至 2 个健康目标，再缩回 1 个；默认 17:00/18:00 cron 和东京时区已通过 AWS 查询核实，正式窗口尚未观察。应用 `ERROR`、ALB HTTP 500 比例和备份失败告警均已实际进入 `ALARM` 并恢复 `OK`；测试故障路由已关闭。`foundation` 和 `workload` 最终 Terraform 详细计划均为退出码 0、无差异。每天 02:00 正式自动备份、AppConfig 自动回滚、SNS 邮件送达及截图整理仍待验收；两个 SNS 订阅仍为 `PendingConfirmation`。[新 GitHub 仓库](https://github.com/twink7e/aws-test) 的公开权限与 Actions Secrets/Variables 配置已核实；本次 `main` 推送后需核对匿名代码访问和工作流运行结果。截至本次文档更新，没有 GitHub Actions 成功运行记录。详见 [部署证据](deployment-evidence.md)。
+已在东京区域应用 `bootstrap` 6 项、`foundation` 88 项、`workload` 首次 23 项；手工镜像构建/ECR 推送/Terraform 发布、ALB 首页与健康检查、手工备份及隔离恢复、临时 Scheduler 备份、AppConfig 动态更新与恢复均已通过。临时 scheduled action 已实测将 ECS 从 1 个任务扩至 2 个健康目标，再缩回 1 个；默认 17:00/18:00 cron 和东京时区已通过 AWS 查询核实，正式窗口尚未观察。应用 `ERROR`、ALB HTTP 500 比例和备份失败告警均已实际进入 `ALARM` 并恢复 `OK`；测试故障路由已关闭。手工验收后的 `foundation` 和 `workload` Terraform 详细计划均为退出码 0、无差异。每天 02:00 正式自动备份、AppConfig 自动回滚、SNS 邮件送达及应用/ALB 告警截图仍待验收；一条 SNS 邮件订阅已确认，另一条仍为 `PendingConfirmation`。[新 GitHub 仓库](https://github.com/twink7e/aws-test) 匿名仓库和 README 均为 HTTP 200；两次 Actions run 均成功，第二次部署 `poper-test-web:5`，AWS 复查 ECS desired/running 1/1、pending 0、单 deployment、rollout `COMPLETED`，ALB 首页与 `/healthz` 均为 HTTP 200。详见 [部署证据](deployment-evidence.md)。

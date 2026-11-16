@@ -6,9 +6,9 @@
 
 | 项目 | 已观察结果 |
 | --- | --- |
-| Terraform | `bootstrap` 创建 6 项资源；`foundation` 首次创建 87 项，随后增加 1 项日志组；`workload` 首次创建 23 项。测试中将应用错误告警周期由 300 秒改为 60 秒，`foundation` 仅修改 1 项；备份失败告警周期也由 300 秒改为 60 秒，`workload` 仅修改 1 项，两次均无新增或销毁。临时备份 Scheduler 已恢复默认表达式。临时扩缩容表达式及恢复默认表达式两次 `apply` 均为 0 新增、2 修改、0 销毁；最终 `foundation` 与 `workload` 计划均以 detailed exit code 0 结束，无差异。三个 stack 分别保存 state。 |
-| 镜像发布 | PHP 应用、Nginx 和备份三张 `linux/arm64` 镜像已手工构建、测试并推送 ECR。`workload` 使用 ECR 镜像 digest 固定版本并完成 `terraform apply`。这是**手工首发**，不代表 CI/CD 已通过。 |
-| ECS 服务 | 应用服务期望任务数和运行任务数均为 1；ALB 目标健康。应用任务定义设置 `nofile` soft/hard 为 131072。 |
+| Terraform | `bootstrap` 创建 6 项资源；`foundation` 首次创建 87 项，随后增加 1 项日志组；`workload` 首次创建 23 项。测试中将应用错误告警周期由 300 秒改为 60 秒，`foundation` 仅修改 1 项；备份失败告警周期也由 300 秒改为 60 秒，`workload` 仅修改 1 项，两次均无新增或销毁。临时备份 Scheduler 已恢复默认表达式。临时扩缩容表达式及恢复默认表达式两次 `apply` 均为 0 新增、2 修改、0 销毁；手工验收结束时 `foundation` 与 `workload` 计划均以 detailed exit code 0 结束，无差异。随后 Actions 发布又更新了 workload 镜像 digest。三个 stack 分别保存 state。 |
+| 镜像发布 | PHP 应用、Nginx 和备份三张 `linux/arm64` 镜像已手工构建、测试并推送 ECR，`workload` 使用 ECR 镜像 digest 固定版本完成 Terraform 首发。随后 [首次 Actions run 43813162697](https://github.com/twink7e/aws-test/actions/runs/43813162697) 和 [原生 ARM run 43815555640](https://github.com/twink7e/aws-test/actions/runs/43815555640) 均成功：测试、三张镜像 ECR 推送、digest 解析、Terraform apply、ECS 稳定性检查及 SNS 发布结果步骤通过。第二次 PHP-FPM 构建为 1 分 27 秒，首次 QEMU 构建为 13 分 23 秒。 |
+| ECS 服务 | 第二次 Actions 部署 `poper-test-web:5`；release job 中的 `aws ecs wait services-stable` 和任务定义、单 deployment、running=desired 检查通过。随后 AWS 实查 desired/running 为 1/1、pending 0、单 deployment、rollout `COMPLETED`；ALB 首页和 `/healthz` 均返回 HTTP 200。应用任务定义设置 `nofile` soft/hard 为 131072。 |
 
 ## 访问与功能
 
@@ -17,8 +17,8 @@
 - CloudWatch Logs 已收到 Nginx JSON、Laravel/PHP-FPM、ALB JSON、备份和 Lambda 控制器日志。自定义 `X-Amzn-Trace-Id` 在 Nginx 与 Laravel 日志中均可查到；Container Insights 日志组保留期为 7 天。
 - CloudWatch Dashboard 的底层指标已有真实数据：ECS/ContainerInsights `RunningTaskCount` 为 1.0，AWS/ECS `CPUUtilization` 有数据点；Dashboard 截图尚待整理。
 - 8 个 CloudWatch Alarm 在受控测试前均为 `OK`。临时启用测试路由后，Laravel 产生 2 个 `ERROR` 事件，`poper-test-application-error` 进入 `ALARM`；25/25 次测试请求返回精确 HTTP 500，`poper-test-alb-exact-500-ratio` 因 89.655% 超过 10% 阈值进入 `ALARM`。测试后已关闭路由，两个路径均返回 404，ALB 比例告警恢复 `OK`；应用错误告警在 2026-11-16 03:53 UTC 恢复 `OK`。为缩短评估与恢复窗口，`foundation` 将应用错误告警周期由 300 秒改为 60 秒，此次 `apply` 为 1 项修改、无新增和销毁。SNS 邮件送达尚未验证。
-- 受控失败备份任务退出码为 1；Lambda 控制器将任务结果判定为 `false`，发出 `BackupFailed` 指标值 1。用户提供的 [CloudWatch History 截图](evidence/cloudwatch-backup-failed-history.png) 显示 `poper-test-backup-failed` 于 2026-11-16 03:47:32 UTC 从 `OK` 进入 `ALARM`，同一时刻成功执行 `poper-test-alerts` SNS topic action，并于 03:58:27 UTC 从 `ALARM` 恢复 `OK`。为缩短恢复窗口，`workload` 将该告警周期由 300 秒改为 60 秒，此次 `apply` 为 1 项修改、无新增和销毁。两个 SNS 邮件订阅尚未确认，因此没有邮件送达证据。
-- 三个告警的 CloudWatch action history 均记录在进入 `ALARM` 时成功执行 `poper-test-alerts` SNS topic action。该记录证明告警向 SNS topic 发起动作，不代表邮件已送达；两个订阅仍为 `PendingConfirmation`。
+- 受控失败备份任务退出码为 1；Lambda 控制器将任务结果判定为 `false`，发出 `BackupFailed` 指标值 1。用户提供的 [CloudWatch History 截图](evidence/cloudwatch-backup-failed-history.png) 显示 `poper-test-backup-failed` 于 2026-11-16 03:47:32 UTC 从 `OK` 进入 `ALARM`，同一时刻成功执行 `poper-test-alerts` SNS topic action，并于 03:58:27 UTC 从 `ALARM` 恢复 `OK`。为缩短恢复窗口，`workload` 将该告警周期由 300 秒改为 60 秒，此次 `apply` 为 1 项修改、无新增和销毁。仍有一条 SNS 邮件订阅尚未确认，目前没有邮件送达证据。
+- 三个告警的 CloudWatch action history 均记录在进入 `ALARM` 时成功执行 `poper-test-alerts` SNS topic action，触发、执行与恢复时间见 [告警历史记录](evidence/cloudwatch-alarm-history.md)。该记录证明告警向 SNS topic 发起动作，不代表邮件已送达；一条订阅已确认，另一条仍为 `PendingConfirmation`。当前八个项目告警均为 `OK`。
 - AppConfig 临时内容 `Live update verified` 已在首页出现，期间 ECS 任务定义未变化，证明应用动态获取配置。随后通过 Terraform 恢复默认内容，首页又显示 `Hello from AppConfig`。此测试不等同于 AppConfig 自动回滚验证。
 
 ## 调度、备份与恢复
@@ -32,8 +32,8 @@
 
 ## 尚待完成的验收
 
-- 两个 SNS 邮件订阅仍为 `PendingConfirmation`；收件人须先确认订阅，之后才能验证告警邮件送达。
-- 备份失败告警的 CloudWatch History 截图已保存；应用 `ERROR` 和 ALB 精确 HTTP 500 的触发后截图仍待用户上传。
+- 一条 SNS 邮件订阅已确认，另一条仍为 `PendingConfirmation`；待确认的收件人仍须确认订阅。告警邮件的收件箱送达尚未验证。
+- 备份失败告警的 CloudWatch History 截图已保存；应用 `ERROR` 和 ALB 精确 HTTP 500 的触发及 SNS action 已在控制台 History 核对，但两张截图尚未保存到仓库。
 - 告警邮件、正式 17:00/18:00 窗口、每天 02:00 正式定时备份及 AppConfig 自动回滚仍需单独验证；已受控触发的应用错误、ALB 500 比例和备份失败告警目前均为 `OK`。
-- [twink7e/aws-test](https://github.com/twink7e/aws-test) 的公开权限已核实，两个 Actions Secrets 和四个 Variables 已配置。本次 `main` 推送后需核对匿名代码访问，并实际运行 `release` 工作流核对构建、测试、ECR 推送、Terraform 发布与通知。截至本次记录，没有 CI/CD 成功运行记录。
+- [twink7e/aws-test](https://github.com/twink7e/aws-test) 匿名仓库和 README 均返回 HTTP 200；两个 Actions Secrets 和四个 Variables 已配置。两次 push 运行均成功，第二次的 `notify` job 中 `Publish release result` 步骤成功；邮件送达仍未证明。
 - 迁移背景：旧测试账号的仓库匿名访问曾返回 404，Actions 触发曾返回 HTTP 422；此记录不代表新仓库存在同样限制。
