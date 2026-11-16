@@ -24,4 +24,4 @@ aws cloudwatch describe-alarm-history \
   --query 'AlarmHistoryItems[].{time:Timestamp,type:HistoryItemType,summary:HistorySummary}'
 ```
 
-CloudWatch 告警的状态和 SNS 订阅是独立环节。核验时八条告警均为 `OK`；SNS 邮件订阅一条已确认，一条仍为 `PendingConfirmation`。SNS action 成功表示已发布到 topic，不能据此断定两位收件人都收到邮件。
+CloudWatch 告警的状态和 SNS 订阅是独立环节。核验时八条告警均为 `OK`；新别名的两条 SNS 邮件订阅均为 `PendingConfirmation`；旧别名的一条未确认订阅暂时残留。SNS action 成功表示已发布到 topic，不能据此断定两位收件人都收到邮件。

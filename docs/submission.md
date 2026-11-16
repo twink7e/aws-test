@@ -28,7 +28,7 @@
 | 访问、应用、备份日志 | [CloudWatch Logs](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1) | 在 Log groups 中查 `/poper-test/app`、`/poper-test/web`、`/poper-test/backup` 及 ALB 日志组。 |
 | ECS / ALB 指标与看板 | [CloudWatch Dashboards](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1) | 在 Dashboards 中查 `poper-test-operations`；底层 RunningTaskCount、CPU 指标已有数据。 |
 | 应用、ALB、备份告警 | [CloudWatch Alarms](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1) | 在 Alarms 中查 `poper-test-application-error`、`poper-test-alb-exact-500-ratio`、`poper-test-backup-failed` 及 action history。 |
-| 告警与发布通知 | [SNS](https://console.aws.amazon.com/sns/v3/home?region=ap-northeast-1) | topic `poper-test-alerts`；一条邮件订阅已确认，另一条仍为 `PendingConfirmation`。无收件箱送达证据。 |
+| 告警与发布通知 | [SNS](https://console.aws.amazon.com/sns/v3/home?region=ap-northeast-1) | topic `poper-test-alerts`；新别名的两条邮件订阅均为 `PendingConfirmation`。旧别名的一条未确认订阅暂时残留，等待 AWS 自动过期；无收件箱送达证据。 |
 | 运行时密钥 | [Secrets Manager](https://console.aws.amazon.com/secretsmanager/home?region=ap-northeast-1) | RDS 托管密码与 Laravel `APP_KEY`；只核对资源存在和权限，不展示值。 |
 
 ## 文档、架构图与告警演示
@@ -43,6 +43,6 @@
 
 ## 提交前仍需完成
 
-1. 剩余一位收件人确认 SNS 邮件订阅后，重新触发通知并保存邮件送达证据；目前已验证 CloudWatch 告警和 Actions 发布结果均向 SNS topic 发出动作，没有收件箱送达记录。
+1. 两位新别名收件人确认 SNS 邮件订阅后，重新触发通知并保存邮件送达证据；目前已验证 CloudWatch 告警和 Actions 发布结果均向 SNS topic 发出动作，没有收件箱送达记录。
 2. 已有备份失败告警 History 截图；继续补齐应用 `ERROR`、ALB 精确 HTTP 500 告警触发后截图，以及需要交付的其他 AWS Console 截图。检查截图没有密钥、密码或私有配置。
 3. 按原题要求将本页、文档、架构图和代码整理为可发送的交付包，或发布为可匿名打开的在线文档。正式东京时间 17:00/18:00 的扩缩容窗口、02:00 的每日备份窗口，以及 AppConfig 自动回滚仍待观察；临时调度动作已验证机制。
