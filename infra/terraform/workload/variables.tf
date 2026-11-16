@@ -83,6 +83,18 @@ variable "web_task_memory" {
   default     = 512
 }
 
+variable "ecs_scale_out_schedule_expression" {
+  description = "Application Auto Scaling schedule for 2 ECS tasks, evaluated in Asia/Tokyo."
+  type        = string
+  default     = "cron(0 17 * * ? *)"
+}
+
+variable "ecs_scale_in_schedule_expression" {
+  description = "Application Auto Scaling schedule for 1 ECS task, evaluated in Asia/Tokyo."
+  type        = string
+  default     = "cron(0 18 * * ? *)"
+}
+
 variable "backup_prefix" {
   description = "S3 key prefix used by the backup image."
   type        = string

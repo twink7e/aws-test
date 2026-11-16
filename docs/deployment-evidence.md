@@ -6,7 +6,7 @@
 
 | 项目 | 已观察结果 |
 | --- | --- |
-| Terraform | `bootstrap` 创建 6 项资源；`foundation` 首次创建 87 项，随后增加 1 项日志组；`workload` 首次创建 23 项。测试中将应用错误告警周期由 300 秒改为 60 秒，`foundation` 仅修改 1 项；备份失败告警周期也由 300 秒改为 60 秒，`workload` 仅修改 1 项，两次均无新增或销毁。临时备份 Scheduler 已恢复默认表达式。最新 `foundation` 与 `workload` 计划均以 detailed exit code 0 结束，无差异。三个 stack 分别保存 state。 |
+| Terraform | `bootstrap` 创建 6 项资源；`foundation` 首次创建 87 项，随后增加 1 项日志组；`workload` 首次创建 23 项。测试中将应用错误告警周期由 300 秒改为 60 秒，`foundation` 仅修改 1 项；备份失败告警周期也由 300 秒改为 60 秒，`workload` 仅修改 1 项，两次均无新增或销毁。临时备份 Scheduler 已恢复默认表达式。临时扩缩容表达式及恢复默认表达式两次 `apply` 均为 0 新增、2 修改、0 销毁；最终 `foundation` 与 `workload` 计划均以 detailed exit code 0 结束，无差异。三个 stack 分别保存 state。 |
 | 镜像发布 | PHP 应用、Nginx 和备份三张 `linux/arm64` 镜像已手工构建、测试并推送 ECR。`workload` 使用 ECR 镜像 digest 固定版本并完成 `terraform apply`。这是 GitHub Actions 受限期间的**手工首发**，不代表 CI/CD 已通过。 |
 | ECS 服务 | 应用服务期望任务数和运行任务数均为 1；ALB 目标健康。应用任务定义设置 `nofile` soft/hard 为 131072。 |
 
@@ -23,7 +23,9 @@
 
 ## 调度、备份与恢复
 
-- Application Auto Scaling 已配置东京时间 17:00 扩至 2 个 ECS 应用任务、18:00 缩至 1 个。尚需跨真实时间窗口核对任务数变化。
+- 2026-11-16 用 Terraform 将两项 Application Auto Scaling scheduled action 临时设为 `at(2026-11-16T13:10:00)` 和 `at(2026-11-16T13:13:00)`，时区均为 `Asia/Tokyo`；`apply` 为 0 新增、2 修改、0 销毁。触发前 ECS desired/running 为 1/1，scalable target 最小/最大容量为 1/1。
+- 04:10:49 UTC（东京时间 13:10:49）观察到 ECS desired 2、running 1、pending 1，容量上下限 2/2；04:11:32 UTC（13:11:32）desired/running 均为 2，两个 ALB target 均健康；04:13:22 UTC（13:13:22）desired/running 回到 1/1，容量上下限回到 1/1。这验证了定时扩容和缩容机制。
+- 测试后 Terraform 以 0 新增、2 修改、0 销毁恢复默认值。AWS `describe-scheduled-actions` 确认两项表达式分别为 `cron(0 17 * * ? *)`、`cron(0 18 * * ? *)`，时区均为 `Asia/Tokyo`；scalable target 上下限与 ECS desired/running 均为 1/1。最终 workload 详细计划退出码 0、无差异。正式 17:00/18:00 窗口尚未观察。
 - 手工调用备份控制 Lambda 成功启动并完成 Fargate 备份任务，S3 收到 16,664 字节的 PostgreSQL 自定义格式 dump。
 - 临时 Scheduler 在 2026-11-16 东京时间 12:52 自动启动备份任务；任务退出码为 0，S3 收到 16,664 字节的 dump。随后通过 Terraform 将计划恢复为 `cron(0 2 * * ? *)`、时区 `Asia/Tokyo`；正式每天 02:00 的触发仍需单独观察。
 - 将手工备份产生的 dump 恢复到隔离的本地 PostgreSQL 17 实例，确认 9 张表和 3 条 Laravel migration 记录。
@@ -31,6 +33,6 @@
 ## 尚待完成的验收
 
 - 两个 SNS 邮件订阅仍为 `PendingConfirmation`；收件人须先确认订阅，之后才能验证告警邮件送达。
-- 告警邮件、17:00/18:00 实际扩缩容、每天 02:00 正式定时备份及 AppConfig 自动回滚仍需单独验证；已受控触发的应用错误、ALB 500 比例和备份失败告警目前均为 `OK`。
+- 告警邮件、正式 17:00/18:00 窗口、每天 02:00 正式定时备份及 AppConfig 自动回滚仍需单独验证；已受控触发的应用错误、ALB 500 比例和备份失败告警目前均为 `OK`。
 - GitHub 仓库级 Actions 已启用，但触发工作流返回 HTTP 422 `Actions has been disabled for this user`。应在账号限制解除后实际运行 `release` 工作流并核对构建、测试、ECR 推送、Terraform 发布与通知；目前没有 CI/CD 成功运行记录。
 - GitHub Support 页面提示账号被 flagged：账号所有者已开启 2FA，但手机号短信验证页面提示请求次数限制。须由账号所有者稍后完成短信验证并提交工单；当前尚无工单编号。

@@ -18,7 +18,7 @@ resource "aws_appautoscaling_scheduled_action" "evening_start" {
   service_namespace  = aws_appautoscaling_target.web.service_namespace
   resource_id        = aws_appautoscaling_target.web.resource_id
   scalable_dimension = aws_appautoscaling_target.web.scalable_dimension
-  schedule           = "cron(0 17 * * ? *)"
+  schedule           = var.ecs_scale_out_schedule_expression
   timezone           = "Asia/Tokyo"
 
   scalable_target_action {
@@ -32,7 +32,7 @@ resource "aws_appautoscaling_scheduled_action" "evening_end" {
   service_namespace  = aws_appautoscaling_target.web.service_namespace
   resource_id        = aws_appautoscaling_target.web.resource_id
   scalable_dimension = aws_appautoscaling_target.web.scalable_dimension
-  schedule           = "cron(0 18 * * ? *)"
+  schedule           = var.ecs_scale_in_schedule_expression
   timezone           = "Asia/Tokyo"
 
   scalable_target_action {

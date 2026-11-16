@@ -2,7 +2,7 @@
 
 本仓库是面试题的可复现交付物。目标是在 AWS 东京区域，用 Terraform 声明全部云资源；用 GitHub Actions 构建 Docker 镜像并发布 Laravel 13 / PHP 8.4 应用；通过 CloudWatch 和 SNS 提供可验证的日志、告警和通知；每日把 PostgreSQL 全量逻辑备份写入 S3。
 
-当前阶段是**云端验收**。AWS 东京区域已应用 `bootstrap` 6 项、`foundation` 88 项和 `workload` 首次 23 项资源；三张 `linux/arm64` 镜像已手工构建、推送 ECR，并以 digest 完成 Terraform 发布。ALB 首页与 `/healthz` 均返回 200；手工备份的 dump 已在隔离的 PostgreSQL 17 实例恢复，临时 Scheduler 也成功触发备份。应用 `ERROR`、ALB HTTP 500 比例及备份失败告警均已受控触发，随后全部恢复 `OK`。AppConfig 临时内容已在首页动态显示，无须更改 ECS 任务定义，默认配置已通过 Terraform 恢复且再次显示在首页。测试故障路由已关闭；`foundation` 和 `workload` 最终计划均无变更。
+当前阶段是**云端验收**。AWS 东京区域已应用 `bootstrap` 6 项、`foundation` 88 项和 `workload` 首次 23 项资源；三张 `linux/arm64` 镜像已手工构建、推送 ECR，并以 digest 完成 Terraform 发布。ALB 首页与 `/healthz` 均返回 200；手工备份的 dump 已在隔离的 PostgreSQL 17 实例恢复，临时 Scheduler 也成功触发备份。临时定时动作实测 ECS 从 1 个任务扩至 2 个健康目标，再缩回 1 个；两项动作已恢复为东京时间 17:00/18:00 的每日表达式。应用 `ERROR`、ALB HTTP 500 比例及备份失败告警均已受控触发，随后全部恢复 `OK`。AppConfig 临时内容已在首页动态显示，无须更改 ECS 任务定义，默认配置已通过 Terraform 恢复且再次显示在首页。测试故障路由已关闭；`foundation` 和 `workload` 最终详细计划均无变更。
 
 代码已推送至独立的 [fafafafa868888/poper-test](https://github.com/fafafafa868888/poper-test)，Actions Secrets/Variables 已配置，但 GitHub 账号级限制使工作流无法运行：仓库级 Actions 已启用，`gh workflow run` 返回 HTTP 422 `Actions has been disabled for this user`；登录态显示 Public，匿名账号主页、仓库和 raw 文件仍返回 404。GitHub Support 工单尚未提交：账号已开启 2FA，但手机号短信验证页提示请求次数限制，账号所有者稍后仍需完成短信验证。两个 SNS 订阅仍待确认，不能证明邮件送达。不要把 AWS 凭证、Terraform state、数据库密码或评估题原件提交到公开仓库。
 
@@ -29,6 +29,7 @@
 | `docs/runbook.md` | 从账号准备到上线、验收、恢复、清理的逐步操作。 |
 | `docs/acceptance.md` | 面试题逐项验收清单，标明本地实现与云端证据的状态。 |
 | `docs/deployment-evidence.md` | 东京区域手工部署、应用访问、备份恢复与告警的实测记录。 |
+| `docs/submission.md` | 按原题提交格式汇总仓库、AWS Console 入口、文档、告警演示和待补证据。 |
 | `docs/terraform-feasibility.md` | 逐项说明 Terraform 可实现的操作、扩缩容边界和账号权限约束。 |
 | `docs/plan-summary.md` | 东京测评账号的 Terraform 应用进度与待云端验收项。 |
 | `docs/repository-map.md` | 每个受版本控制的目录和文件的具体作用。 |
@@ -41,7 +42,7 @@
 
 三个 stack 独立保存 state，依次执行 `bootstrap → foundation → workload`。`foundation` 不随每次镜像发布重建数据库或网络；`workload` 从 foundation 的只读输出获取 ARN、网络、仓库和日志组。应用镜像使用 ECR digest 固定版本，`terraform apply` 是实际发布步骤。每次发布共用同一个 GitHub Actions concurrency 组，避免互相覆盖。
 
-定时扩缩容仅控制 ECS 服务的任务数。17:00 到 17:59 目标为 2，其他时间目标为 1；缩容受到正在进行的 ECS 部署、任务停止宽限和连接排空影响，无法保证在 18:00:00 瞬间完成。RDS 存储如果启用自动增长，则**不能原地缩小容量**；本题默认不启用该功能，以免产生不可逆的容量增长。Fargate 的 `nofile` 在任务定义中提高，但仍受 Fargate 平台上限约束。
+定时扩缩容仅控制 ECS 服务的任务数。默认配置在东京时间 17:00 到 17:59 目标为 2，其他时间目标为 1。2026-11-16 曾用 13:10/13:13 的一次性动作验证扩容和缩容：两个目标在扩容后均健康，缩容后期望/运行任务数回到 1。测试后两项 AWS scheduled action 已恢复默认表达式和时区，Terraform 详细计划无差异；实际 17:00/18:00 窗口尚未观察。任务启动、连接排空和停止宽限会让实际任务数稍晚于触发时刻变化。RDS 存储如果启用自动增长，则**不能原地缩小容量**；本题默认不启用该功能，以免产生不可逆的容量增长。Fargate 的 `nofile` 在任务定义中提高，但仍受 Fargate 平台上限约束。
 
 备份容器默认使用 Fargate 的 20 GiB 临时磁盘。如果完整 dump 超过可用空间，备份会失败并告警；可通过 `backup_ephemeral_storage_gib` 为下一版备份任务定义配置 21–200 GiB，并评估额外费用。更大的数据库也可以改成流式上传，但当前实现先落临时文件再核对 S3 大小，便于面试验收。
 
@@ -72,6 +73,7 @@ AWS 东京区域凭证已在本机 `AKSK.env`，告警别名已确定为 `zhangs
 - [架构图片](docs/architecture.png)
 - [逐项验收清单](docs/acceptance.md)
 - [东京部署与验收记录](docs/deployment-evidence.md)
+- [交付包索引与 AWS Console 入口](docs/submission.md)
 - [Terraform 实现边界与缩容限制](docs/terraform-feasibility.md)
 - [东京区域 Terraform 部署进度](docs/plan-summary.md)
 - [逐文件资源清单](docs/repository-map.md)
@@ -79,4 +81,8 @@ AWS 东京区域凭证已在本机 `AKSK.env`，告警别名已确定为 `zhangs
 
 ## AI 辅助说明
 
-本仓库的方案、Terraform、示例应用、备份程序及文档由 Codex 协助编写和检查。静态检查、本地容器测试和已观察到的 AWS 运行结果分别记录在 [验收清单](docs/acceptance.md) 与 [部署证据](docs/deployment-evidence.md)；GitHub Actions 运行和邮件送达尚未验证。
+本仓库使用 Codex 辅助架构设计、Terraform/Docker/Laravel/备份代码编写和文档整理。AI 减少了重复配置的编写，并把“生成实现→静态检查→容器测试→云端验证”的反馈循环集中在同一工作流；没有量化节省的时间。
+
+采用自然语言驱动的人机协作，包含 Vibe Coding 式的快速迭代：用户确定东京区域、最小规格、成本和安全边界，Codex 落盘实现并执行检查，结果再按 Terraform 计划、容器冒烟和 AWS 实测逐项核对。关键提示词示例（原需求意译）：「用 Terraform 落盘东京区域资源，按最小规格部署 Laravel 13/PHP 8.4 到 ECS Fargate，配置定时扩缩容、数据库备份和 CloudWatch/SNS 告警，并写清每个文件的用途。」工作流示例：需求拆解 → 三层 Terraform stack → `fmt/validate/plan` → Docker 测试 → AWS 部署 → 告警与恢复演练 → 记录证据。
+
+静态检查、本地容器测试和已观察到的 AWS 运行结果分别记录在 [验收清单](docs/acceptance.md) 与 [部署证据](docs/deployment-evidence.md)；GitHub Actions 运行和邮件送达尚未验证。

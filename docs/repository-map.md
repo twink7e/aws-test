@@ -69,6 +69,7 @@
 | `docs/plan-summary.md` | 东京账号 Terraform 部署进度、资源数量、关键配置与剩余验收条件。 |
 | `docs/repository-map.md` | 当前逐目录、逐文件说明。 |
 | `docs/runbook.md` | 首次部署、验收、备份恢复、告警演示和销毁步骤。 |
+| `docs/submission.md` | 原题交付包索引：公开仓库、东京区域 AWS Console 入口、架构图、告警触发方法与待补截图。 |
 | `scripts/render_architecture.py` | 用 Pillow 重新生成 `docs/architecture.png`。 |
 
 ## Terraform bootstrap 文件

@@ -74,7 +74,7 @@ CloudWatch Logs 已收到 Nginx JSON、Laravel/PHP-FPM、ALB JSON、备份及 La
 
 ### 定时任务数
 
-Application Auto Scaling 已配置东京时间 17:00 将 ECS 服务的最小/最大容量都设为 2，在 18:00 设回 1；真实时间窗口的扩缩容结果尚待观察。可在 AWS 控制台查看 Scheduled actions 和 ECS service desired/running count。真实任务停止时间受 ECS 部署、连接排空与停止宽限影响，通常不是整点瞬时完成。手工测试时可以临时把两个 cron 改到最近时间，验收后恢复并重新 `apply`。
+Application Auto Scaling 的默认配置是在东京时间 17:00 将 ECS 服务的最小/最大容量都设为 2，在 18:00 设回 1。2026-11-16 通过 `TF_VAR_ecs_scale_out_schedule_expression` 和 `TF_VAR_ecs_scale_in_schedule_expression` 临时设置 `at(2026-11-16T13:10:00)` / `at(2026-11-16T13:13:00)`，时区为 `Asia/Tokyo`；Terraform `apply` 为 0 新增、2 修改、0 销毁。13:10 前 desired/running 1/1、容量上下限 1/1；13:10:49 desired 2/running 1/pending 1、上下限 2/2；13:11:32 desired/running 2/2，两个 ALB 目标健康；13:13:22 desired/running 1/1、上下限 1/1。测试后重新 `apply` 恢复两项默认 cron，AWS 查询确认表达式为 `cron(0 17 * * ? *)` / `cron(0 18 * * ? *)`、时区均为 `Asia/Tokyo`；当前上下限与 ECS desired/running 均为 1/1，最终 workload 详细计划无差异。正式 17:00/18:00 窗口尚未观察。复现时可临时覆盖两个表达式，测试后取消覆盖并重新 `terraform apply`，再查询 AWS 中两项 scheduled action 的表达式与时区，并执行 `terraform plan -detailed-exitcode`。真实任务启动、连接排空和停止宽限会影响期望数与运行数达到目标的时间。
 
 ### 数据库全量备份和恢复
 
@@ -105,4 +105,4 @@ cat /tmp/poper-backup-launch.json
 
 ## 6. 当前进度与剩余验收
 
-已在东京区域应用 `bootstrap` 6 项、`foundation` 88 项、`workload` 首次 23 项；手工镜像构建/ECR 推送/Terraform 发布、ALB 首页与健康检查、手工备份及隔离恢复、临时 Scheduler 备份、AppConfig 动态更新与恢复均已通过。应用 `ERROR`、ALB HTTP 500 比例和备份失败告警均已实际进入 `ALARM` 并恢复 `OK`；测试故障路由已关闭。`foundation` 和 `workload` 最新 Terraform 详细计划均为退出码 0、无差异。每天 02:00 正式自动备份、17:00/18:00 实际扩缩容、AppConfig 自动回滚、SNS 邮件送达及截图整理仍待验收；两个 SNS 订阅仍为 `PendingConfirmation`。GitHub `main` 已推送，Actions Secrets/Variables 已配置；登录态显示仓库 Public，但匿名账号主页、仓库和 raw 文件返回 404。仓库级 Actions 已启用，`gh workflow run` 却返回 HTTP 422 `Actions has been disabled for this user`。账号已开启 2FA，但 GitHub Support 短信验证页面提示请求次数限制，尚未提交工单；账号所有者稍后须完成验证。没有 GitHub Actions 成功运行记录。详见 [部署证据](deployment-evidence.md)。
+已在东京区域应用 `bootstrap` 6 项、`foundation` 88 项、`workload` 首次 23 项；手工镜像构建/ECR 推送/Terraform 发布、ALB 首页与健康检查、手工备份及隔离恢复、临时 Scheduler 备份、AppConfig 动态更新与恢复均已通过。临时 scheduled action 已实测将 ECS 从 1 个任务扩至 2 个健康目标，再缩回 1 个；默认 17:00/18:00 cron 和东京时区已通过 AWS 查询核实，正式窗口尚未观察。应用 `ERROR`、ALB HTTP 500 比例和备份失败告警均已实际进入 `ALARM` 并恢复 `OK`；测试故障路由已关闭。`foundation` 和 `workload` 最终 Terraform 详细计划均为退出码 0、无差异。每天 02:00 正式自动备份、AppConfig 自动回滚、SNS 邮件送达及截图整理仍待验收；两个 SNS 订阅仍为 `PendingConfirmation`。GitHub `main` 已推送，Actions Secrets/Variables 已配置；登录态显示仓库 Public，但匿名账号主页、仓库和 raw 文件返回 404。仓库级 Actions 已启用，`gh workflow run` 却返回 HTTP 422 `Actions has been disabled for this user`。账号已开启 2FA，但 GitHub Support 短信验证页面提示请求次数限制，尚未提交工单；账号所有者稍后须完成验证。没有 GitHub Actions 成功运行记录。详见 [部署证据](deployment-evidence.md)。

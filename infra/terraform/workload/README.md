@@ -54,7 +54,14 @@ The Agent image is pinned to a manifest digest verified to include ARM64 and
 AMD64 variants; update the digest deliberately when upgrading Agent.
 
 Application Auto Scaling changes both minimum and maximum task capacity to 2
-at 17:00 and back to 1 at 18:00 in `Asia/Tokyo`. `desired_count` is ignored by
+at 17:00 and back to 1 at 18:00 in `Asia/Tokyo`. For a near-term schedule
+test, override `TF_VAR_ecs_scale_out_schedule_expression` and
+`TF_VAR_ecs_scale_in_schedule_expression` with two upcoming one-time `at(...)`
+expressions, then
+unset both variables and apply again to restore the daily defaults. Changing
+the schedule expressions does not immediately change the current task count; if
+the test leaves 2 tasks running, let the scheduled scale-in occur or reset the
+scalable target bounds to 1. `desired_count` is ignored by
 Terraform after initial service creation because Auto Scaling owns it. The
 scalable target's minimum and maximum capacity are also ignored after creation:
 scheduled actions own those bounds, so a CI apply during 17:00–17:59 cannot

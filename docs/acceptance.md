@@ -4,14 +4,14 @@
 
 | 验收项 | 实现位置 | 当前状态与证据 |
 | --- | --- | --- |
-| AWS 东京区域、资源可复现 | `infra/terraform/bootstrap/`、`foundation/`、`workload/` | 三套 Terraform `validate` 通过；东京区域已应用 `bootstrap` 6 项、`foundation` 88 项（初次 87 项、日志保留期补充 1 项）、`workload` 首次 23 项。后续告警周期调整分别在 foundation/workload 各修改 1 项、无新增或销毁；最新两个计划均无差异。详见 [部署进度](plan-summary.md)。 |
+| AWS 东京区域、资源可复现 | `infra/terraform/bootstrap/`、`foundation/`、`workload/` | 三套 Terraform `validate` 通过；东京区域已应用 `bootstrap` 6 项、`foundation` 88 项（初次 87 项、日志保留期补充 1 项）、`workload` 首次 23 项。后续告警周期调整分别在 foundation/workload 各修改 1 项、无新增或销毁；临时扩缩容表达式的 Terraform `apply` 为 0 新增、2 修改、0 销毁，恢复默认表达式的 `apply` 也是 0 新增、2 修改、0 销毁。`foundation` 和 `workload` 最终详细计划均无差异。详见 [部署进度](plan-summary.md)。 |
 | 成本优先、单 AZ 小规格 | `foundation/database.tf`、`workload/ecs.tf`、`workload/backup.tf` | RDS 单 AZ `db.t4g.micro`，应用和备份任务均为 Fargate 最小的 0.25 vCPU/0.5 GiB；未建设 RDS Multi-AZ 或热备。ALB 仍按服务要求跨两个 AZ 子网。 |
 | Laravel 13、PHP 8.4、Fargate Docker 部署 | `app/Dockerfile`、`workload/ecs.tf`、`app/docker/nginx.Dockerfile` | 三张 ARM64 镜像已手工构建并推送 ECR；ECS 服务运行 1 个应用任务，ALB 目标健康；首页与 `/healthz` 均返回 HTTP 200。 |
 | 首页显示非敏感环境变量 | `app/config/demo.php`、`app/resources/views/home.blade.php`、`workload/variables.tf` | ECS 实际首页显示 `DEMO_MESSAGE` 的 `Hello from POPER test`。 |
 | AppConfig 动态配置、发布、回滚与通知 | `foundation/appconfig.tf`、`foundation/notifications.tf`、`app/app/Support/AppConfig.php` | 首页在不变更 ECS 任务定义的情况下显示临时内容 `Live update verified`，通过 Terraform 恢复后再次显示 `Hello from AppConfig`。自动回滚和 SNS 邮件仍待验证。 |
 | Nginx JSON 访问日志及 `X-Amzn-Trace-Id` | `app/docker/nginx.conf`、`app/docker/smoke.sh` | CloudWatch 中已看到 Nginx JSON 日志，自定义 `X-Amzn-Trace-Id` 可在 Nginx 与 Laravel 日志中查到；截图待整理。 |
 | Laravel/PHP-FPM、ALB、备份日志进入 CloudWatch | `app/config/logging.php`、`app/docker/fpm.conf`、`foundation/observability.tf`、`workload/ecs.tf` | CloudWatch Logs 已收到 Nginx、Laravel/PHP-FPM、ALB JSON、备份及 Lambda 控制器日志；截图待整理。 |
-| 东京时间 17:00–17:59 为 2 个任务，其他时间 1 个 | `workload/autoscaling.tf`、`workload/data.tf` | 已实现，容量上下限由定时操作管理；待跨时间窗口验证。 |
+| 东京时间 17:00–17:59 为 2 个任务，其他时间 1 个 | `workload/autoscaling.tf`、`workload/data.tf` | 2026-11-16 以东京时间 13:10/13:13 的一次性定时动作实测：扩容前 desired/running 1/1、上下限 1/1；13:10:49 desired 2/running 1/pending 1、上下限 2/2；13:11:32 running 2 且两个 ALB 目标健康；13:13:22 desired/running 1/1、上下限 1/1。验证了定时扩容和缩容机制；两项 AWS 动作已恢复默认 cron 和 `Asia/Tokyo`，当前上下限与 ECS desired/running 均为 1/1。正式 17:00/18:00 窗口尚未观察。 |
 | RDS PostgreSQL 每日全量 dump 到 S3 | `foundation/database.tf`、`workload/backup.tf`、`backup/` | 手工 Lambda → ECS 备份成功，S3 dump 为 16,664 字节；隔离 PostgreSQL 17 恢复出 9 张表和 3 条 migration 记录。临时 Scheduler 于东京时间 12:52 触发备份任务，退出码 0，S3 再次收到 16,664 字节 dump；之后通过 Terraform 恢复 `cron(0 2 * * ? *)`、`Asia/Tokyo`。正式 02:00 运行仍待观察。 |
 | 备份失败告警 | `workload/backup.tf`、`workload/backup_controller.py`、`workload/monitoring.tf` | 受控任务退出码 1，Lambda 判定 `false`，`BackupFailed` 指标为 1，Alarm 进入 `ALARM`。告警周期从 300 秒改为 60 秒；2026-11-16 11:58:27 UTC+08 已恢复 `OK`。SNS 邮件待验证。 |
 | `main` 推送自动构建 ECR 镜像并发布 ECS | `.github/workflows/release.yml` | 手工镜像构建、ECR 推送、digest 固定和 Terraform 首发已完成；工作流已实现并配置 Secrets/Variables，但 GitHub 返回 HTTP 422 `Actions has been disabled for this user`，没有 Actions 成功运行记录。 |
