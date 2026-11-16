@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      simulate_failure:
+        description: 'Manual notification drill: fail before building images'
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: poper-main-release
@@ -70,6 +76,12 @@ jobs:
       IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Simulate release failure for notification drill
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.simulate_failure == true }}
+        run: |
+          echo '::error::Intentional release failure for the manual SNS notification drill.'
+          exit 1
 
       - name: Check workload resource scope
         run: |

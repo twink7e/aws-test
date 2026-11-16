@@ -62,6 +62,8 @@ terraform output
 
 `main` 上首次 [release run 43813162697](https://github.com/twink7e/aws-test/actions/runs/43813162697) 和原生 ARM runner 的 [run 43815555640](https://github.com/twink7e/aws-test/actions/runs/43815555640) 均已成功。第二次运行由 release commit `0d91b5d` 触发；PHP-FPM 镜像构建耗时 1 分 27 秒，首次 QEMU 运行耗时 13 分 23 秒。工作流先构建并本地测试 `linux/arm64` 的 PHP、Nginx 和备份镜像，随后读取 AWS Secrets、验证 workload Terraform，推送镜像到 ECR，以镜像 digest 作为 Terraform 输入并执行 `apply`；第二次部署 `poper-test-web:5`，ECS 稳定性检查通过。两次成功运行的 `notify` job 均通过；失败通知分支尚未实测。若 AWS 认证本身失效，SNS 通知 job 也可能无法认证，须同时查看 Actions 失败状态。
 
+验证发布失败通知时，在 GitHub Actions 的 **Build and deploy → Run workflow** 中选 `main`，勾选 `simulate_failure` 后手动运行。该开关仅对 `workflow_dispatch` 生效，预期 `release` job 在构建镜像前故意失败，`notify` job 向 `SNS_TOPIC_ARN` 发布主题为 `POPER deployment failure` 的消息并附运行链接；检查 Actions 结果及已确认订阅的收件箱，保存证据。执行前须确保 preflight 的 Secrets、Variables 完整且 AWS 认证有效。此演练尚未执行，不应把预期结果写成已验证结果。
+
 已通过手动路径完成首次发布：三张 `linux/arm64` 镜像本地构建和测试后推送 ECR，取得各自 digest URI，并通过 `workload` 的 `terraform apply` 首次创建 23 项资源。复现时进入 `infra/terraform/workload/`，从 `backend.hcl.example` 复制 `backend.hcl`，设置与 foundation 相同的 bucket，key 改为 workload 的 state key；从 `terraform.tfvars.example` 复制 `terraform.tfvars`，填入 foundation state bucket 及三个真实 ECR digest URI，再执行 `terraform init -backend-config=backend.hcl && terraform plan && terraform apply`。后续自动发布已验证；本机与 Actions 不应同时修改同一个 state。每次手工计划应使用当前已发布的镜像 digest，旧的本地 `terraform.tfvars` 可能提出回退镜像的变更。
 
 ## 4. 逐项验收
