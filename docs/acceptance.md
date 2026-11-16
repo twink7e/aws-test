@@ -21,5 +21,5 @@
 | ALB 精确 HTTP 500 比例超过 10% 告警 | `workload/monitoring.tf`、`foundation/observability.tf` | 实测 500 比例 89.655% 时进入 `ALARM`，关闭测试故障路由后恢复 `OK`；两个路径均返回 404。SNS 邮件尚未验证。 |
 | 容器 `nofile` 限制 | `workload/ecs.tf`、`workload/backup.tf` | 已在任务定义设置 soft/hard 131072；待运行任务内验证。 |
 | Terraform 可实现性和缩容限制 | `docs/terraform-feasibility.md` | 已逐项说明，ECS 可按计划缩到 1 个任务；RDS 存储不可原地缩小。 |
-| 架构图、资源说明和操作手册 | `docs/architecture.png`、`docs/repository-map.md`、`docs/runbook.md` | 已生成并核对；东京 AWS Console 入口已列在 [交付索引](submission.md)，备份失败告警 History 截图已入库，应用 `ERROR` 与 ALB 精确 500 告警截图仍待补齐。 |
+| 架构图、资源说明和操作手册 | `docs/architecture.png`、`docs/repository-map.md`、`docs/runbook.md` | 已生成并核对；东京 AWS Console 入口已列在 [交付索引](submission.md)，应用 `ERROR`、ALB 精确 HTTP 500 比例和备份失败的三张告警 History 截图均已入库。 |
 | 公开 GitHub 仓库链接与清理 | `README.md`、`docs/runbook.md` | [twink7e/aws-test](https://github.com/twink7e/aws-test) 的匿名仓库和 README 均为 HTTP 200，两次 push Actions 运行成功。演示结束按 workload → foundation → bootstrap 顺序销毁。 |

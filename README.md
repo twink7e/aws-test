@@ -29,7 +29,7 @@
 | `docs/runbook.md` | 从账号准备到上线、验收、恢复、清理的逐步操作。 |
 | `docs/acceptance.md` | 面试题逐项验收清单，标明本地实现与云端证据的状态。 |
 | `docs/deployment-evidence.md` | 东京区域手工部署、应用访问、备份恢复与告警的实测记录。 |
-| `docs/evidence/` | CloudWatch 告警触发、SNS action 与恢复的时间线，以及已取得的备份失败告警截图。 |
+| `docs/evidence/` | CloudWatch 告警触发、SNS action 与恢复的时间线，以及应用错误、ALB 精确 HTTP 500 比例和备份失败的三张 History 截图。 |
 | `docs/submission.md` | 按原题提交格式汇总仓库、AWS Console 入口、文档、告警演示和待补证据。 |
 | `docs/terraform-feasibility.md` | 逐项说明 Terraform 可实现的操作、扩缩容边界和账号权限约束。 |
 | `docs/plan-summary.md` | 东京测评账号的 Terraform 应用进度与待云端验收项。 |

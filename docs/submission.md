@@ -39,10 +39,10 @@
 | 核心操作流程 | [部署、验收、清理手册](runbook.md) | 包含 Terraform 部署、镜像发布、备份恢复及清理步骤。 |
 | 告警触发方法 | [运行手册：告警触发](runbook.md#告警触发) | 说明应用 `ERROR`、ALB 500 比例和备份失败的受控触发方法；测试路由已关闭。 |
 | 触发后的实际记录 | [告警历史时间线](evidence/cloudwatch-alarm-history.md)、[部署与验收记录](deployment-evidence.md)、[逐项验收清单](acceptance.md) | 三种告警均实测进入 `ALARM` 并恢复 `OK`，CloudWatch action history 显示 SNS topic action 执行成功；八个项目告警目前均为 `OK`。 |
-| 告警触发后的截图 | [备份失败告警 History 截图](evidence/cloudwatch-backup-failed-history.png) | 备份告警截图已具备：`poper-test-backup-failed` 在 2026-11-16 03:47:32 UTC 从 `OK` 进入 `ALARM`，同一时刻 SNS topic action 执行成功，并于 03:58:27 UTC 恢复 `OK`。应用 `ERROR`、ALB 精确 HTTP 500 告警已由 Console/CLI 验证，但两张截图文件尚未保存；截图不证明邮件送达。 |
+| 告警触发后的截图 | [应用 `ERROR` History](evidence/cloudwatch-application-error-history.png)、[ALB 精确 HTTP 500 比例 History](evidence/cloudwatch-alb-exact-500-ratio-history.png)、[备份失败 History](evidence/cloudwatch-backup-failed-history.png) | 三张截图均已保存，包含告警状态变化及 SNS topic action；完整 UTC 时间线见[告警历史记录](evidence/cloudwatch-alarm-history.md)。截图不证明邮件送达。 |
 
 ## 提交前仍需完成
 
 1. 两位新别名收件人确认 SNS 邮件订阅后，重新触发通知并保存邮件送达证据；目前已验证 CloudWatch 告警和 Actions 发布结果均向 SNS topic 发出动作，没有收件箱送达记录。
-2. 已有备份失败告警 History 截图；继续补齐应用 `ERROR`、ALB 精确 HTTP 500 告警触发后截图，以及需要交付的其他 AWS Console 截图。检查截图没有密钥、密码或私有配置。
+2. 三种告警 History 截图已齐；若补充日志、看板等其他 AWS Console 截图，检查画面没有密钥、密码或私有配置。
 3. 按原题要求将本页、文档、架构图和代码整理为可发送的交付包，或发布为可匿名打开的在线文档。正式东京时间 17:00/18:00 的扩缩容窗口、02:00 的每日备份窗口，以及 AppConfig 自动回滚仍待观察；临时调度动作已验证机制。
