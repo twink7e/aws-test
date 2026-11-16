@@ -2,7 +2,7 @@
 
 本仓库是面试题的可复现交付物。目标是在 AWS 东京区域，用 Terraform 声明全部云资源；用 GitHub Actions 构建 Docker 镜像并发布 Laravel 13 / PHP 8.4 应用；通过 CloudWatch 和 SNS 提供可验证的日志、告警和通知；每日把 PostgreSQL 全量逻辑备份写入 S3。
 
-当前阶段是**本地实现和验证**。已用 `AKSK.env` 对 AWS 账号和东京区域权限做只读检查，尚未运行 `terraform apply`，也尚未建立新的 GitHub 仓库；云端地址、邮件订阅和截图需要部署后补齐。不要把 AWS 凭证、Terraform state、数据库密码或评估题原件提交到公开仓库。
+当前阶段是**首次云端部署**。已用 `AKSK.env` 确认 AWS 账号和东京区域权限，并应用 `bootstrap` 建立 Terraform state bucket；`foundation` 已完成真实远端 `plan`，尚未应用。独立 GitHub 仓库已创建于 [fafafafa868888/poper-test](https://github.com/fafafafa868888/poper-test)，当前可见性为 Public；代码尚未推送，Actions Secrets/Variables 仍为空。不要把 AWS 凭证、Terraform state、数据库密码或评估题原件提交到公开仓库。
 
 ## 完成标准
 
@@ -52,16 +52,16 @@ ALB 必须连接两个不同 AZ 的子网，因此网络中仍保留两个公有
 
 ## 需要提供的输入
 
-AWS 东京区域凭证已在本机 `AKSK.env`，告警别名已确定为 `zhangsan`，首页使用非敏感的 `DEMO_MESSAGE` 默认值。后续仍需要：
+AWS 东京区域凭证已在本机 `AKSK.env`，告警别名已确定为 `zhangsan`，首页使用非敏感的 `DEMO_MESSAGE` 默认值。独立 GitHub 仓库已建立；后续仍需要：
 
 | 输入 | 用途 | 安全方式 |
 | --- | --- | --- |
-| 新注册的 GitHub 账号和公开仓库 | 运行 `main` 分支 Actions 并提交最终仓库 URL。 | 普通 GitHub 账号即可；建立后配置 Actions Secrets 和 Variables。 |
+| GitHub 仓库 Actions 配置 | 运行 `main` 分支发布工作流。 | 在已创建的测试仓库中配置 Actions Secrets 和 Variables。 |
 | Actions 中的 AWS AK/SK Secrets | 让工作流发布镜像和执行 workload Terraform。 | 从本地 `AKSK.env` 配置到新仓库的 `AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`；不要写入 Git。测试结束后删除 Secrets 并轮换/停用该 AK/SK。 |
 | 两位告警收件人的订阅确认 | SNS 发布邮件前必须分别确认。 | 已根据 `zhangsan` 生成地址；收件人须点击 AWS 确认邮件。 |
 | 可选域名与同区域 ACM 证书 ARN | 如果要 HTTPS 和友好网址。 | 没有证书时使用 ALB 提供的 HTTP DNS 名称。 |
 
-云资源参数通过 `terraform.tfvars`、`backend.hcl` 传入；AWS 密钥只在本地 `AKSK.env` 和 GitHub Actions Secrets 中，均不进入受版本控制的文件。示例文件可复制后填写；实际变量文件被 `.gitignore` 排除。部署与销毁命令见 [运行手册](docs/runbook.md)。
+云资源参数通过 `terraform.tfvars`、`backend.hcl` 传入；AWS 密钥留在本地 `AKSK.env`，发布时另存入 GitHub Actions Secrets，均不进入受版本控制的文件。示例文件可复制后填写；实际变量文件被 `.gitignore` 排除。部署与销毁命令见 [运行手册](docs/runbook.md)。
 
 ## 相关文档
 

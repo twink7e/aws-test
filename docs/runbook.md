@@ -8,7 +8,7 @@
 
 - AWS CLI 使用本机仓库根目录的 `AKSK.env`。先从根目录运行 `source ./AKSK.env`，再运行 `export AWS_ACCESS_KEY_ID="$AK" AWS_SECRET_ACCESS_KEY="$SK" AWS_DEFAULT_REGION=ap-northeast-1`，最后运行 `aws sts get-caller-identity`，确认是测评账号。`AKSK.env` 已被 Git 忽略，不要把其内容复制到文档或提交仓库。
 - Terraform 版本满足各 stack 的 `versions.tf`；Docker Buildx 可构建 `linux/arm64`；有权限在 GitHub 仓库设置 Actions variables。
-- 新注册的普通 GitHub 账号创建公开仓库并使用 `main` 分支。GitHub Actions 使用 GitHub 托管 runner，不需要新建常驻 CI 服务器。
+- 独立 GitHub 测试账号下的 [fafafafa868888/poper-test](https://github.com/fafafafa868888/poper-test) 仓库已创建，当前显示 Public；首次推送前检查忽略文件，推送后验证匿名访问。使用 `main` 分支和 GitHub 托管 runner，不需要新建常驻 CI 服务器。
 - 告警别名已定为 `zhangsan`：`minghe.yin+zhangsan@poper.co`、`te.qi+zhangsan@poper.co`。创建订阅后，两位收件人都要点击确认邮件；否则 SNS 不会投递。
 
 建议同时设置 `AWS_REGION=ap-northeast-1`，并在每次 `apply` 前重新确认账号身份。仓库里的 `*.example` 文件只含示例值，实际的 `terraform.tfvars`、`backend.hcl` 均被 `.gitignore` 排除。
@@ -105,4 +105,4 @@ cat /tmp/poper-backup-launch.json
 
 ## 6. 当前无法离线验证的项目
 
-仓库可在本地执行格式检查、Terraform 静态验证、Docker 构建和应用测试。已用提供的 AWS 凭证做只读身份/IAM 检查；实际 `apply`、RDS 可用性、ALB 日志投递、SNS 邮件确认、17:00/18:00 调度与备份恢复，必须在云资源建立后完成。GitHub Actions 运行、公开仓库 URL、Console URL 与告警截图也需要部署后补齐。
+仓库可在本地执行格式检查、Terraform 静态验证、Docker 构建和应用测试。已用提供的 AWS 凭证确认账号并应用 `bootstrap`；`foundation` 与 `workload` 的实际 `apply`、RDS 可用性、ALB 日志投递、SNS 邮件确认、17:00/18:00 调度与备份恢复仍须云端验收。公开仓库 URL 已确定；GitHub Actions 运行、匿名访问确认、Console URL 与告警截图仍需补齐。
