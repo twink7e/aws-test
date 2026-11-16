@@ -60,9 +60,9 @@ terraform output
 
 上述四个 Variables 和两个 Secrets `AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY` 已在新仓库配置，后两者对应本地 `AKSK.env` 中的 `AK`、`SK`。不要把密钥放进 Actions Variables、工作流 YAML 或仓库文件。该测评使用现有受限 IAM 用户，测试结束删除这两个 Secrets，并轮换或停用这组 AK/SK。
 
-`main` 上首次 [release run 43813162697](https://github.com/twink7e/aws-test/actions/runs/43813162697) 和原生 ARM runner 的 [run 43815555640](https://github.com/twink7e/aws-test/actions/runs/43815555640) 均已成功。第二次运行由 release commit `0d91b5d` 触发；PHP-FPM 镜像构建耗时 1 分 27 秒，首次 QEMU 运行耗时 13 分 23 秒。工作流先构建并本地测试 `linux/arm64` 的 PHP、Nginx 和备份镜像，随后读取 AWS Secrets、验证 workload Terraform，推送镜像到 ECR，以镜像 digest 作为 Terraform 输入并执行 `apply`；第二次部署 `poper-test-web:5`，ECS 稳定性检查通过。两次成功运行的 `notify` job 均通过；失败通知分支尚未实测。若 AWS 认证本身失效，SNS 通知 job 也可能无法认证，须同时查看 Actions 失败状态。
+`main` 上首次 [release run 43813162697](https://github.com/twink7e/aws-test/actions/runs/43813162697) 和原生 ARM runner 的 [run 43815555640](https://github.com/twink7e/aws-test/actions/runs/43815555640) 均已成功。第二次运行由 release commit `0d91b5d` 触发；PHP-FPM 镜像构建耗时 1 分 27 秒，首次 QEMU 运行耗时 13 分 23 秒。工作流先构建并本地测试 `linux/arm64` 的 PHP、Nginx 和备份镜像，随后读取 AWS Secrets、验证 workload Terraform，推送镜像到 ECR，以镜像 digest 作为 Terraform 输入并执行 `apply`；第二次部署 `poper-test-web:5`，ECS 稳定性检查通过。两次成功运行的 `notify` job 均通过；受控 [失败演练 run 43824754336](https://github.com/twink7e/aws-test/actions/runs/43824754336) 也已验证失败通知分支。若 AWS 认证本身失效，SNS 通知 job 也可能无法认证，须同时查看 Actions 失败状态。
 
-验证发布失败通知时，在 GitHub Actions 的 **Build and deploy → Run workflow** 中选 `main`，勾选 `simulate_failure` 后手动运行。该开关仅对 `workflow_dispatch` 生效，预期 `release` job 在构建镜像前故意失败，`notify` job 向 `SNS_TOPIC_ARN` 发布主题为 `POPER deployment failure` 的消息并附运行链接；检查 Actions 结果及已确认订阅的收件箱，保存证据。执行前须确保 preflight 的 Secrets、Variables 完整且 AWS 认证有效。此演练尚未执行，不应把预期结果写成已验证结果。
+验证发布失败通知时，在 GitHub Actions 的 **Build and deploy → Run workflow** 中选 `main`，勾选 `simulate_failure` 后手动运行。该开关仅对 `workflow_dispatch` 生效，预期 `release` job 在构建镜像前故意失败，`notify` job 向 `SNS_TOPIC_ARN` 发布主题为 `POPER deployment failure` 的消息并附运行链接；检查 Actions 结果及已确认订阅的收件箱，保存证据。执行前须确保 preflight 的 Secrets、Variables 完整且 AWS 认证有效。2026-11-16 的受控演练中，preflight 成功，release 在 `Simulate release failure for notification drill` 步骤按预期失败，Docker 构建、ECR 推送和 Terraform 步骤均跳过；`notify` job 成功，`Publish release result` 于 07:37:39 UTC 以 `RELEASE_RESULT=failure` 发布 SNS 消息，返回 MessageId `3b9da49d-3953-556f-accf-c7e98c503560`。工作流整体显示 `failure` 是预期结果；两条新别名订阅仍未确认，未验证收件箱送达。
 
 已通过手动路径完成首次发布：三张 `linux/arm64` 镜像本地构建和测试后推送 ECR，取得各自 digest URI，并通过 `workload` 的 `terraform apply` 首次创建 23 项资源。复现时进入 `infra/terraform/workload/`，从 `backend.hcl.example` 复制 `backend.hcl`，设置与 foundation 相同的 bucket，key 改为 workload 的 state key；从 `terraform.tfvars.example` 复制 `terraform.tfvars`，填入 foundation state bucket 及三个真实 ECR digest URI，再执行 `terraform init -backend-config=backend.hcl && terraform plan && terraform apply`。后续自动发布已验证；本机与 Actions 不应同时修改同一个 state。每次手工计划应使用当前已发布的镜像 digest，旧的本地 `terraform.tfvars` 可能提出回退镜像的变更。
 
@@ -74,11 +74,13 @@ terraform output
 
 ### 日志和看板
 
-CloudWatch Logs 已收到 Nginx JSON、Laravel/PHP-FPM、ALB JSON、备份及 Lambda 控制器日志；自定义 `X-Amzn-Trace-Id` 已在 Nginx 与 Laravel 日志中查到。复现时带一个自定义追踪头访问首页，再逐项核对日志内容。CloudWatch Dashboard 已有底层真实指标：ECS/ContainerInsights `RunningTaskCount` 数据点为 1.0，AWS/ECS `CPUUtilization` 有数据点；看板还应显示 ECS desired/running task、CPU、内存、ALB HTTP 状态和 500 比例，截图待整理。所有日志组都有保留期，默认测试保留期可在变量中调整。
+CloudWatch Logs 已收到 Nginx JSON、Laravel/PHP-FPM、ALB JSON、备份及 Lambda 控制器日志；自定义 `X-Amzn-Trace-Id` 已在 Nginx 与 Laravel 日志中查到。复现时带一个自定义追踪头访问首页，再逐项核对日志内容。已在 Chrome 核对 [CloudWatch Dashboard `poper-test-operations`](https://ap-northeast-1.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#dashboards/dashboard/poper-test-operations)：ECS running/desired、CPU/内存、ALB 目标 HTTP 状态分类和 ALB 生成错误四个图表均有真实数据；ECS/ContainerInsights `RunningTaskCount` 数据点为 1.0，AWS/ECS `CPUUtilization` 也有数据点。所有日志组都有保留期，默认测试保留期可在变量中调整。
 
 ### 定时任务数
 
-Application Auto Scaling 的默认配置是在东京时间 17:00 将 ECS 服务的最小/最大容量都设为 2，在 18:00 设回 1。2026-11-16 通过 `TF_VAR_ecs_scale_out_schedule_expression` 和 `TF_VAR_ecs_scale_in_schedule_expression` 临时设置 `at(2026-11-16T13:10:00)` / `at(2026-11-16T13:13:00)`，时区为 `Asia/Tokyo`；Terraform `apply` 为 0 新增、2 修改、0 销毁。13:10 前 desired/running 1/1、容量上下限 1/1；13:10:49 desired 2/running 1/pending 1、上下限 2/2；13:11:32 desired/running 2/2，两个 ALB 目标健康；13:13:22 desired/running 1/1、上下限 1/1。测试后重新 `apply` 恢复两项默认 cron，AWS 查询确认表达式为 `cron(0 17 * * ? *)` / `cron(0 18 * * ? *)`、时区均为 `Asia/Tokyo`；当前上下限与 ECS desired/running 均为 1/1，最终 workload 详细计划无差异。正式 17:00/18:00 窗口尚未观察。复现时可临时覆盖两个表达式，测试后取消覆盖并重新 `terraform apply`，再查询 AWS 中两项 scheduled action 的表达式与时区，并执行 `terraform plan -detailed-exitcode`。真实任务启动、连接排空和停止宽限会影响期望数与运行数达到目标的时间。
+Application Auto Scaling 的默认配置是在东京时间 17:00 将 ECS 服务的最小/最大容量都设为 2，在 18:00 设回 1。2026-11-16 通过 `TF_VAR_ecs_scale_out_schedule_expression` 和 `TF_VAR_ecs_scale_in_schedule_expression` 临时设置 `at(2026-11-16T13:10:00)` / `at(2026-11-16T13:13:00)`，时区为 `Asia/Tokyo`；Terraform `apply` 为 0 新增、2 修改、0 销毁。13:10 前 desired/running 1/1、容量上下限 1/1；13:10:49 desired 2/running 1/pending 1、上下限 2/2；13:11:32 desired/running 2/2，两个 ALB 目标健康；13:13:22 desired/running 1/1、上下限 1/1。测试后重新 `apply` 恢复两项默认 cron，AWS 查询确认表达式为 `cron(0 17 * * ? *)` / `cron(0 18 * * ? *)`、时区均为 `Asia/Tokyo`；正式窗口前上下限与 ECS desired/running 均为 1/1，最终 workload 详细计划无差异。复现时可临时覆盖两个表达式，测试后取消覆盖并重新 `terraform apply`，再查询 AWS 中两项 scheduled action 的表达式与时区，并执行 `terraform plan -detailed-exitcode`。真实任务启动、连接排空和停止宽限会影响期望数与运行数达到目标的时间。
+
+正式每日动作也已观察到扩容，见[2026-11-16 定时扩缩容证据](evidence/scheduled-scaling-2026-11-16.md)：16:58:42 JST ECS desired/running/pending 为 1/1/0，上下限 1/1；17:00:45 左右调度将上下限改为 2/2，ECS events 记录 17:00:52 开始启动第二个任务、17:01:47 注册 ALB 目标、17:01:56 服务进入稳定状态。17:02:52 AWS 复查 desired/running/pending 为 2/2/0，两个 ALB 目标均健康。正式 18:00 缩容尚待观察。
 
 ### 数据库全量备份和恢复
 
@@ -101,7 +103,9 @@ cat /tmp/poper-backup-launch.json
 
 ### AppConfig 发布
 
-已将 AppConfig 临时内容 `Live update verified` 发布并在首页看到变化，期间 ECS 任务定义未改动；之后通过 Terraform 恢复默认内容，首页再次显示 `Hello from AppConfig`。自动回滚与 SNS 通知仍待验证。复现配置发布时，更新 foundation 的 `appconfig_initial_content` JSON，执行 `terraform plan` 和 `terraform apply`，等待 AppConfig deployment 完成并在 Agent 轮询后刷新首页。测试自动回滚前，将 `appconfig_use_gradual_deployment` 设为 `true`；AppConfig 的部署监控使用应用 `ERROR` CloudWatch Alarm 作为回滚信号，EventBridge 扩展把完成与回滚事件发送至 SNS。这里的配置是动态读取的；若需要修改 ECS 进程环境变量，必须重新部署任务定义，不能指望 AppConfig 自动改写已启动进程的环境。
+已将 AppConfig 临时内容 `Live update verified` 发布并在首页看到变化，期间 ECS 任务定义未改动；之后通过 Terraform 恢复默认内容，首页再次显示 `Hello from AppConfig`。复现配置发布时，更新 foundation 的 `appconfig_initial_content` JSON，执行 `terraform plan` 和 `terraform apply`，等待 AppConfig deployment 完成并在 Agent 轮询后刷新首页。
+
+自动回滚也已实测，完整 UTC 时间线见[受控回滚证据](evidence/appconfig-rollback-2026-11-16.md)。演练使用 Terraform 管理的 5 分钟发布、5 分钟烘焙的渐进策略，发布一次性非敏感托管配置版本 4；在专用日志流写入一条受控 JSON `ERROR`，由现有 metric filter 触发真实 CloudWatch Alarm，未人工覆盖告警状态。07:30:06 UTC 应用错误告警进入 `ALARM`，07:30:07 部署 `#4` 因 `CLOUDWATCH_ALARM` 变为 `ROLLED_BACK`；回滚 EventBridge 规则匹配并调用一次。告警于 07:36:06 自然恢复 `OK`。稳定版本的恢复部署 `#5` 于 07:46:42 UTC 完成，AppConfig 记录 `NotifyOnDeploymentComplete`，环境为 `ReadyForDeployment`。完成规则在 07:46 UTC 匹配并调用一次，SNS topic 同分钟发布 1 条消息，与完成事件相符但聚合指标不能逐条归因；回滚分钟的 SNS 发布 2 条，与告警和回滚事件相符。恢复后 ALB 首页包含 `Hello from POPER test` 和 `Hello from AppConfig`，不含临时测试文案；`foundation` 详细计划退出码 0、无差异。两条新别名邮件订阅未确认，邮件送达未验证。这里的配置是动态读取的；若需要修改 ECS 进程环境变量，必须重新部署任务定义，不能指望 AppConfig 自动改写已启动进程的环境。
 
 ## 5. 清理
 
@@ -109,4 +113,4 @@ cat /tmp/poper-backup-launch.json
 
 ## 6. 当前进度与剩余验收
 
-已在东京区域应用 `bootstrap` 6 项、`foundation` 88 项、`workload` 首次 23 项；手工镜像构建/ECR 推送/Terraform 发布、ALB 首页与健康检查、手工备份及隔离恢复、临时 Scheduler 备份、AppConfig 动态更新与恢复均已通过。临时 scheduled action 已实测将 ECS 从 1 个任务扩至 2 个健康目标，再缩回 1 个；默认 17:00/18:00 cron 和东京时区已通过 AWS 查询核实，正式窗口尚未观察。应用 `ERROR`、ALB HTTP 500 比例和备份失败告警均已实际进入 `ALARM` 并恢复 `OK`；测试故障路由已关闭。手工验收后的 `foundation` 和 `workload` Terraform 详细计划均为退出码 0、无差异。每天 02:00 正式自动备份、AppConfig 自动回滚及 SNS 邮件送达仍待验收；三种告警的 History 截图已入库，新别名的两条 SNS 邮件订阅均为 `PendingConfirmation`。[新 GitHub 仓库](https://github.com/twink7e/aws-test) 匿名仓库和 README 均为 HTTP 200；两次 Actions run 均成功，第二次部署 `poper-test-web:5`，AWS 复查 ECS desired/running 1/1、pending 0、单 deployment、rollout `COMPLETED`，ALB 首页与 `/healthz` 均为 HTTP 200。详见 [部署证据](deployment-evidence.md)。
+已在东京区域应用 `bootstrap` 6 项、`foundation` 88 项、`workload` 首次 23 项；手工镜像构建/ECR 推送/Terraform 发布、ALB 首页与健康检查、手工备份及隔离恢复、临时 Scheduler 备份、AppConfig 动态更新与自动回滚均已通过。临时 scheduled action 已实测将 ECS 从 1 个任务扩至 2 个健康目标，再缩回 1 个；默认 17:00/18:00 cron 和东京时区已通过 AWS 查询核实，正式 17:00 扩容已达到 2/2 且两个 ALB 目标健康，正式 18:00 缩容尚待观察。应用 `ERROR`、ALB HTTP 500 比例和备份失败告警均已实际进入 `ALARM` 并恢复 `OK`；测试故障路由已关闭。手工验收后的 `foundation` 和 `workload` Terraform 详细计划均为退出码 0、无差异。每天 02:00 正式自动备份及 SNS 邮件送达仍待验收；三种告警的 History 截图已入库，新别名的两条 SNS 邮件订阅均为 `PendingConfirmation`。[新 GitHub 仓库](https://github.com/twink7e/aws-test) 匿名仓库和 README 均为 HTTP 200；两次 push Actions run 均成功，另一次受控 workflow_dispatch run 按预期失败并成功向 SNS 发布失败通知；第二次正常发布部署 `poper-test-web:5`，扩容前 AWS 复查 ECS desired/running 1/1、pending 0、单 deployment、rollout `COMPLETED`，ALB 首页与 `/healthz` 均为 HTTP 200。详见 [部署证据](deployment-evidence.md)。

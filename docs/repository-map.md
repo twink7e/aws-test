@@ -69,6 +69,9 @@
 | `docs/evidence/cloudwatch-application-error-history.png` | 东京区域 CloudWatch 应用 `ERROR` 告警 History 截图，记录状态变化与 SNS topic action。 |
 | `docs/evidence/cloudwatch-alb-exact-500-ratio-history.png` | 东京区域 CloudWatch ALB 精确 HTTP 500 比例告警 History 截图，记录状态变化与 SNS topic action。 |
 | `docs/evidence/cloudwatch-backup-failed-history.png` | 用户提供的东京区域 CloudWatch 备份失败告警 History 截图，记录告警触发、SNS topic action 和恢复。 |
+| `docs/evidence/appconfig-rollback-2026-11-16.md` | 受控 AppConfig 渐进发布由真实应用错误告警触发自动回滚的时间线、EventBridge/SNS 观测、恢复发布及邮件验证边界。 |
+| `docs/evidence/trace-correlation-2026-11-16.md` | `/healthz` 的自定义 Trace ID 在 CloudWatch Nginx 与 Laravel JSON 访问日志中关联的实测记录。 |
+| `docs/evidence/scheduled-scaling-2026-11-16.md` | 东京时间正式 17:00 扩容及同日一次性双向扩缩容演练的 ECS、Application Auto Scaling、ALB 健康证据。 |
 | `docs/terraform-feasibility.md` | 题目逐项的 Terraform 可实现性、告警设计、ECS/RDS 缩容限制和当前账号权限边界。 |
 | `docs/plan-summary.md` | 东京账号 Terraform 部署进度、资源数量、关键配置与剩余验收条件。 |
 | `docs/repository-map.md` | 当前逐目录、逐文件说明。 |

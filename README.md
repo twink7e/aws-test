@@ -2,9 +2,9 @@
 
 本仓库是面试题的可复现交付物。目标是在 AWS 东京区域，用 Terraform 声明全部云资源；用 GitHub Actions 构建 Docker 镜像并发布 Laravel 13 / PHP 8.4 应用；通过 CloudWatch 和 SNS 提供可验证的日志、告警和通知；每日把 PostgreSQL 全量逻辑备份写入 S3。
 
-当前阶段是**云端验收**。AWS 东京区域已应用 `bootstrap` 6 项、`foundation` 88 项和 `workload` 首次 23 项资源；三张 `linux/arm64` 镜像已手工构建、推送 ECR，并以 digest 完成 Terraform 首发，随后由 GitHub Actions 自动构建和更新 ECS。ALB 首页与 `/healthz` 均返回 200；手工备份的 dump 已在隔离的 PostgreSQL 17 实例恢复，临时 Scheduler 也成功触发备份。临时定时动作实测 ECS 从 1 个任务扩至 2 个健康目标，再缩回 1 个；两项动作已恢复为东京时间 17:00/18:00 的每日表达式。应用 `ERROR`、ALB HTTP 500 比例及备份失败告警均已受控触发，随后全部恢复 `OK`。AppConfig 临时内容已在首页动态显示，无须更改 ECS 任务定义，默认配置已通过 Terraform 恢复且再次显示在首页。测试故障路由已关闭。
+当前阶段是**云端验收**。AWS 东京区域已应用 `bootstrap` 6 项、`foundation` 88 项和 `workload` 首次 23 项资源；三张 `linux/arm64` 镜像已手工构建、推送 ECR，并以 digest 完成 Terraform 首发，随后由 GitHub Actions 自动构建和更新 ECS。ALB 首页与 `/healthz` 均返回 200；手工备份的 dump 已在隔离的 PostgreSQL 17 实例恢复，临时 Scheduler 也成功触发备份。临时定时动作实测 ECS 从 1 个任务扩至 2 个健康目标，再缩回 1 个；正式东京时间 17:00 的每日扩容也已使服务达到 2/2、两个 ALB 目标健康，18:00 的正式缩容仍待观察。应用 `ERROR`、ALB HTTP 500 比例及备份失败告警均已受控触发，随后全部恢复 `OK`。AppConfig 临时内容已在首页动态显示，受控 `ERROR` 告警还使渐进发布自动回滚；当前页面仍显示稳定配置。测试故障路由已关闭。
 
-公开仓库为 [twink7e/aws-test](https://github.com/twink7e/aws-test)，匿名访问仓库和 README 均返回 HTTP 200。两个 Actions Secrets 和四个 Variables 已配置。[首次 push run 43813162697](https://github.com/twink7e/aws-test/actions/runs/43813162697) 与改用原生 ARM runner 后的 [run 43815555640](https://github.com/twink7e/aws-test/actions/runs/43815555640) 均成功：测试、三张镜像推送 ECR、Terraform 更新 ECS，以及发布结果 SNS topic action 全部通过。第二次运行部署了 `poper-test-web:5`，PHP-FPM 镜像构建由首次 QEMU 的 13 分 23 秒缩至 1 分 27 秒。新别名的两条 SNS 邮件订阅均为 `PendingConfirmation`；旧别名的一条未确认订阅会暂时残留在 AWS 列表中，目前没有收件箱送达证据。不要把 AWS 凭证、Terraform state、数据库密码或评估题原件提交到公开仓库。
+公开仓库为 [twink7e/aws-test](https://github.com/twink7e/aws-test)，匿名访问仓库和 README 均返回 HTTP 200。两个 Actions Secrets 和四个 Variables 已配置。[首次 push run 43813162697](https://github.com/twink7e/aws-test/actions/runs/43813162697) 与改用原生 ARM runner 后的 [run 43815555640](https://github.com/twink7e/aws-test/actions/runs/43815555640) 均成功：测试、三张镜像推送 ECR、Terraform 更新 ECS，以及发布结果 SNS topic action 全部通过。第二次运行部署了 `poper-test-web:5`，PHP-FPM 镜像构建由首次 QEMU 的 13 分 23 秒缩至 1 分 27 秒。[受控失败 run 43824754336](https://github.com/twink7e/aws-test/actions/runs/43824754336) 还验证了失败分支向 SNS 发布通知。新别名的两条 SNS 邮件订阅均为 `PendingConfirmation`；旧别名的一条未确认订阅会暂时残留在 AWS 列表中，目前没有收件箱送达证据。不要把 AWS 凭证、Terraform state、数据库密码或评估题原件提交到公开仓库。
 
 ## 完成标准
 
@@ -29,7 +29,7 @@
 | `docs/runbook.md` | 从账号准备到上线、验收、恢复、清理的逐步操作。 |
 | `docs/acceptance.md` | 面试题逐项验收清单，标明本地实现与云端证据的状态。 |
 | `docs/deployment-evidence.md` | 东京区域手工部署、应用访问、备份恢复与告警的实测记录。 |
-| `docs/evidence/` | CloudWatch 告警触发、SNS action 与恢复的时间线，以及应用错误、ALB 精确 HTTP 500 比例和备份失败的三张 History 截图。 |
+| `docs/evidence/` | CloudWatch 告警触发、SNS action 与恢复的时间线，三张告警 History 截图，以及 AppConfig 自动回滚和访问日志 Trace ID 记录。 |
 | `docs/submission.md` | 按原题提交格式汇总仓库、AWS Console 入口、文档、告警演示和待补证据。 |
 | `docs/terraform-feasibility.md` | 逐项说明 Terraform 可实现的操作、扩缩容边界和账号权限约束。 |
 | `docs/plan-summary.md` | 东京测评账号的 Terraform 应用进度与待云端验收项。 |
@@ -43,7 +43,7 @@
 
 三个 stack 独立保存 state，依次执行 `bootstrap → foundation → workload`。`foundation` 不随每次镜像发布重建数据库或网络；`workload` 从 foundation 的只读输出获取 ARN、网络、仓库和日志组。应用镜像使用 ECR digest 固定版本，`terraform apply` 是实际发布步骤。每次发布共用同一个 GitHub Actions concurrency 组，避免互相覆盖。
 
-定时扩缩容仅控制 ECS 服务的任务数。默认配置在东京时间 17:00 到 17:59 目标为 2，其他时间目标为 1。2026-11-16 曾用 13:10/13:13 的一次性动作验证扩容和缩容：两个目标在扩容后均健康，缩容后期望/运行任务数回到 1。测试后两项 AWS scheduled action 已恢复默认表达式和时区，Terraform 详细计划无差异；实际 17:00/18:00 窗口尚未观察。任务启动、连接排空和停止宽限会让实际任务数稍晚于触发时刻变化。RDS 存储如果启用自动增长，则**不能原地缩小容量**；本题默认不启用该功能，以免产生不可逆的容量增长。Fargate 的 `nofile` 在任务定义中提高，但仍受 Fargate 平台上限约束。
+定时扩缩容仅控制 ECS 服务的任务数。默认配置在东京时间 17:00 到 17:59 目标为 2，其他时间目标为 1。2026-11-16 曾用 13:10/13:13 的一次性动作验证扩容和缩容：两个目标在扩容后均健康，缩容后期望/运行任务数回到 1。测试后两项 AWS scheduled action 已恢复默认表达式和时区，Terraform 详细计划无差异。正式 17:00 扩容已观察：16:58:42 JST 为 1/1，17:02:52 JST 达到 ECS desired/running 2/2，两个 ALB 目标健康；正式 18:00 缩容尚待观察，详见[定时扩缩容证据](docs/evidence/scheduled-scaling-2026-11-16.md)。任务启动、连接排空和停止宽限会让实际任务数稍晚于触发时刻变化。RDS 存储如果启用自动增长，则**不能原地缩小容量**；本题默认不启用该功能，以免产生不可逆的容量增长。Fargate 的 `nofile` 在任务定义中提高，但仍受 Fargate 平台上限约束。
 
 备份容器默认使用 Fargate 的 20 GiB 临时磁盘。如果完整 dump 超过可用空间，备份会失败并告警；可通过 `backup_ephemeral_storage_gib` 为下一版备份任务定义配置 21–200 GiB，并评估额外费用。更大的数据库也可以改成流式上传，但当前实现先落临时文件再核对 S3 大小，便于面试验收。
 
@@ -72,6 +72,9 @@ AWS 东京区域凭证已在本机 `AKSK.env`，告警别名已确定为 `shuo.x
 - [架构图片](docs/architecture.png)
 - [逐项验收清单](docs/acceptance.md)
 - [东京部署与验收记录](docs/deployment-evidence.md)
+- [AppConfig 自动回滚验收](docs/evidence/appconfig-rollback-2026-11-16.md)
+- [正式定时扩容验收](docs/evidence/scheduled-scaling-2026-11-16.md)
+- [访问日志 Trace ID 关联验收](docs/evidence/trace-correlation-2026-11-16.md)
 - [交付包索引与 AWS Console 入口](docs/submission.md)
 - [Terraform 实现边界与缩容限制](docs/terraform-feasibility.md)
 - [东京区域 Terraform 部署进度](docs/plan-summary.md)
