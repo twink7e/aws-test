@@ -1,7 +1,10 @@
 resource "aws_ecs_cluster" "app" {
   name = "${var.project_name}-cluster"
 
-  depends_on = [aws_iam_service_linked_role.ecs]
+  depends_on = [
+    aws_iam_service_linked_role.ecs,
+    aws_cloudwatch_log_group.container_insights_performance,
+  ]
 
   setting {
     name  = "containerInsights"

@@ -18,6 +18,14 @@ resource "aws_cloudwatch_log_group" "backup" {
   retention_in_days = var.log_retention_days
 }
 
+# ECS Container Insights writes embedded performance metrics to this group.
+# Pre-create it so AWS does not leave an automatically created group without
+# a retention policy when the first Fargate task starts.
+resource "aws_cloudwatch_log_group" "container_insights_performance" {
+  name              = "/aws/ecs/containerinsights/${var.project_name}-cluster/performance"
+  retention_in_days = var.log_retention_days
+}
+
 resource "aws_cloudwatch_log_group" "alb_access" {
   name              = "/aws/vendedlogs/elasticloadbalancing/${var.project_name}/access"
   retention_in_days = var.log_retention_days

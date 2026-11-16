@@ -105,4 +105,4 @@ cat /tmp/poper-backup-launch.json
 
 ## 6. 当前无法离线验证的项目
 
-仓库可在本地执行格式检查、Terraform 静态验证、Docker 构建和应用测试。已用提供的 AWS 凭证确认账号并应用 `bootstrap`；`foundation` 与 `workload` 的实际 `apply`、RDS 可用性、ALB 日志投递、SNS 邮件确认、17:00/18:00 调度与备份恢复仍须云端验收。公开仓库 URL 已确定；GitHub Actions 运行、匿名访问确认、Console URL 与告警截图仍需补齐。
+仓库可在本地执行格式检查、Terraform 静态验证、Docker 构建和应用测试。已用提供的 AWS 凭证确认账号并应用 `bootstrap`、`foundation`；`workload` 的实际 `apply`、RDS 连接、ALB 日志投递、SNS 邮件确认、17:00/18:00 调度与备份恢复仍须云端验收。GitHub 登录态显示仓库 Public，但匿名访问账号主页和仓库返回 404；需复核账号公开可见性。GitHub Actions 运行、Console URL 与告警截图仍需补齐。

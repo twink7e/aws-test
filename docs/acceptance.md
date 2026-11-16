@@ -4,7 +4,7 @@
 
 | 验收项 | 实现位置 | 当前状态与证据 |
 | --- | --- | --- |
-| AWS 东京区域、资源可复现 | `infra/terraform/bootstrap/`、`foundation/`、`workload/` | 已实现；三套 Terraform `validate` 通过。`bootstrap` 已在目标账号应用，创建 6 项且无修改/删除；`foundation` 真实远端计划拟创建 87 项，待应用和服务验收。详见 `docs/plan-summary.md`。 |
+| AWS 东京区域、资源可复现 | `infra/terraform/bootstrap/`、`foundation/`、`workload/` | 已实现；三套 Terraform `validate` 通过。`bootstrap` 已创建 6 项；`foundation` 已创建 88 项（初次 87 项、日志保留期补充 1 项），均无修改或删除；`workload` 待发布。详见 `docs/plan-summary.md`。 |
 | 成本优先、单 AZ 小规格 | `foundation/database.tf`、`workload/ecs.tf`、`workload/backup.tf` | RDS 单 AZ `db.t4g.micro`，应用和备份任务均为 Fargate 最小的 0.25 vCPU/0.5 GiB；未建设 RDS Multi-AZ 或热备。ALB 仍按服务要求跨两个 AZ 子网。 |
 | Laravel 13、PHP 8.4、Fargate Docker 部署 | `app/Dockerfile`、`workload/ecs.tf`、`app/docker/nginx.Dockerfile` | ARM64 镜像与本地 HTTP 冒烟测试通过；待 ECS 部署。 |
 | 首页显示非敏感环境变量 | `app/config/demo.php`、`app/resources/views/home.blade.php`、`workload/variables.tf` | 已选 `DEMO_MESSAGE` 并提供默认值；待 ECS 实际页面截图。 |
@@ -22,4 +22,4 @@
 | 容器 `nofile` 限制 | `workload/ecs.tf`、`workload/backup.tf` | 已在任务定义设置 soft/hard 131072；待运行任务内验证。 |
 | Terraform 可实现性和缩容限制 | `docs/terraform-feasibility.md` | 已逐项说明，ECS 可按计划缩到 1 个任务；RDS 存储不可原地缩小。 |
 | 架构图、资源说明和操作手册 | `docs/architecture.png`、`docs/repository-map.md`、`docs/runbook.md` | 已生成并核对；实际 AWS Console URL 和告警截图待部署后补齐。 |
-| 公开 GitHub 仓库链接与清理 | `README.md`、`docs/runbook.md` | 独立仓库 [fafafafa868888/poper-test](https://github.com/fafafafa868888/poper-test) 已创建，GitHub 当前显示 Public；代码未推送，Actions Secrets/Variables 仍为空，待可匿名访问验证。演示结束按 workload → foundation → bootstrap 顺序销毁。 |
+| 公开 GitHub 仓库链接与清理 | `README.md`、`docs/runbook.md` | 独立仓库 [fafafafa868888/poper-test](https://github.com/fafafafa868888/poper-test) 已推送代码并配置 Actions；登录态显示 Public，但匿名访问账号主页和仓库返回 404，待 GitHub 复核可见性。演示结束按 workload → foundation → bootstrap 顺序销毁。 |

@@ -2,7 +2,7 @@
 
 本仓库是面试题的可复现交付物。目标是在 AWS 东京区域，用 Terraform 声明全部云资源；用 GitHub Actions 构建 Docker 镜像并发布 Laravel 13 / PHP 8.4 应用；通过 CloudWatch 和 SNS 提供可验证的日志、告警和通知；每日把 PostgreSQL 全量逻辑备份写入 S3。
 
-当前阶段是**首次云端部署**。已用 `AKSK.env` 确认 AWS 账号和东京区域权限，并应用 `bootstrap` 建立 Terraform state bucket；`foundation` 已完成真实远端 `plan`，尚未应用。独立 GitHub 仓库已创建于 [fafafafa868888/poper-test](https://github.com/fafafafa868888/poper-test)，当前可见性为 Public；代码尚未推送，Actions Secrets/Variables 仍为空。不要把 AWS 凭证、Terraform state、数据库密码或评估题原件提交到公开仓库。
+当前阶段是**首次云端部署**。`bootstrap` 与 `foundation` 已在 AWS 东京区域应用；`workload` 尚待首次镜像发布。代码已推送至独立的 [fafafafa868888/poper-test](https://github.com/fafafafa868888/poper-test)，Actions Secrets/Variables 已配置。GitHub 登录态显示 Public，但截至 2026-11-16 匿名访问账号主页和仓库均返回 404；公开交付地址须待 GitHub 账号可见性问题解决后复核。不要把 AWS 凭证、Terraform state、数据库密码或评估题原件提交到公开仓库。
 
 ## 完成标准
 
@@ -27,7 +27,7 @@
 | `docs/runbook.md` | 从账号准备到上线、验收、恢复、清理的逐步操作。 |
 | `docs/acceptance.md` | 面试题逐项验收清单，标明本地实现与云端证据的状态。 |
 | `docs/terraform-feasibility.md` | 逐项说明 Terraform 可实现的操作、扩缩容边界和账号权限约束。 |
-| `docs/plan-summary.md` | 已用东京测评账号完成的只读 Terraform 计划与待云端验收项。 |
+| `docs/plan-summary.md` | 东京测评账号的 Terraform 应用进度与待云端验收项。 |
 | `docs/repository-map.md` | 每个受版本控制的目录和文件的具体作用。 |
 | `scripts/render_architecture.py` | 从仓库内的图形定义重新生成架构 PNG。 |
 | `.gitignore`、`.editorconfig` | 防止本地状态/密钥误提交，统一文本格式。 |
@@ -52,12 +52,12 @@ ALB 必须连接两个不同 AZ 的子网，因此网络中仍保留两个公有
 
 ## 需要提供的输入
 
-AWS 东京区域凭证已在本机 `AKSK.env`，告警别名已确定为 `zhangsan`，首页使用非敏感的 `DEMO_MESSAGE` 默认值。独立 GitHub 仓库已建立；后续仍需要：
+AWS 东京区域凭证已在本机 `AKSK.env`，告警别名已确定为 `zhangsan`，首页使用非敏感的 `DEMO_MESSAGE` 默认值。独立 GitHub 仓库及 Actions 配置已建立；后续仍需要：
 
 | 输入 | 用途 | 安全方式 |
 | --- | --- | --- |
-| GitHub 仓库 Actions 配置 | 运行 `main` 分支发布工作流。 | 在已创建的测试仓库中配置 Actions Secrets 和 Variables。 |
-| Actions 中的 AWS AK/SK Secrets | 让工作流发布镜像和执行 workload Terraform。 | 从本地 `AKSK.env` 配置到新仓库的 `AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`；不要写入 Git。测试结束后删除 Secrets 并轮换/停用该 AK/SK。 |
+| GitHub 公开可见性 | 让面试官无需登录即可查看交付仓库。 | 当前匿名访问返回 404；检查账号验证/限制提示，并联系 GitHub Support 复核。 |
+| Actions 中的 AWS AK/SK Secrets | 让工作流发布镜像和执行 workload Terraform。 | 已从本地 `AKSK.env` 配置到新仓库的 Secrets，未写入 Git。测试结束后删除 Secrets 并轮换/停用该 AK/SK。 |
 | 两位告警收件人的订阅确认 | SNS 发布邮件前必须分别确认。 | 已根据 `zhangsan` 生成地址；收件人须点击 AWS 确认邮件。 |
 | 可选域名与同区域 ACM 证书 ARN | 如果要 HTTPS 和友好网址。 | 没有证书时使用 ALB 提供的 HTTP DNS 名称。 |
 
@@ -69,7 +69,7 @@ AWS 东京区域凭证已在本机 `AKSK.env`，告警别名已确定为 `zhangs
 - [架构图片](docs/architecture.png)
 - [逐项验收清单](docs/acceptance.md)
 - [Terraform 实现边界与缩容限制](docs/terraform-feasibility.md)
-- [东京区域只读 Terraform 计划](docs/plan-summary.md)
+- [东京区域 Terraform 部署进度](docs/plan-summary.md)
 - [逐文件资源清单](docs/repository-map.md)
 - [部署、验证与清理手册](docs/runbook.md)
 
