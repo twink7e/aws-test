@@ -2,7 +2,9 @@
 
 本仓库是面试题的可复现交付物。目标是在 AWS 东京区域，用 Terraform 声明全部云资源；用 GitHub Actions 构建 Docker 镜像并发布 Laravel 13 / PHP 8.4 应用；通过 CloudWatch 和 SNS 提供可验证的日志、告警和通知；每日把 PostgreSQL 全量逻辑备份写入 S3。
 
-当前阶段是**首次云端部署**。`bootstrap` 与 `foundation` 已在 AWS 东京区域应用；`workload` 尚待首次镜像发布。代码已推送至独立的 [fafafafa868888/poper-test](https://github.com/fafafafa868888/poper-test)，Actions Secrets/Variables 已配置。GitHub 登录态显示 Public，但截至 2026-11-16 匿名访问账号主页和仓库均返回 404；公开交付地址须待 GitHub 账号可见性问题解决后复核。不要把 AWS 凭证、Terraform state、数据库密码或评估题原件提交到公开仓库。
+当前阶段是**云端验收**。AWS 东京区域已应用 `bootstrap` 6 项、`foundation` 88 项和 `workload` 首次 23 项资源；三张 `linux/arm64` 镜像已手工构建、推送 ECR，并以 digest 完成 Terraform 发布。ALB 首页与 `/healthz` 均返回 200；手工备份的 dump 已在隔离的 PostgreSQL 17 实例恢复，临时 Scheduler 也成功触发备份。应用 `ERROR`、ALB HTTP 500 比例及备份失败告警均已受控触发，随后全部恢复 `OK`。AppConfig 临时内容已在首页动态显示，无须更改 ECS 任务定义，默认配置已通过 Terraform 恢复且再次显示在首页。测试故障路由已关闭；`foundation` 和 `workload` 最终计划均无变更。
+
+代码已推送至独立的 [fafafafa868888/poper-test](https://github.com/fafafafa868888/poper-test)，Actions Secrets/Variables 已配置，但 GitHub 账号级限制使工作流无法运行：仓库级 Actions 已启用，`gh workflow run` 返回 HTTP 422 `Actions has been disabled for this user`；登录态显示 Public，匿名账号主页、仓库和 raw 文件仍返回 404。GitHub Support 工单尚未提交：账号已开启 2FA，但手机号短信验证页提示请求次数限制，账号所有者稍后仍需完成短信验证。两个 SNS 订阅仍待确认，不能证明邮件送达。不要把 AWS 凭证、Terraform state、数据库密码或评估题原件提交到公开仓库。
 
 ## 完成标准
 
@@ -26,6 +28,7 @@
 | `docs/architecture.png` | 可直接随交付物提交的架构图片。 |
 | `docs/runbook.md` | 从账号准备到上线、验收、恢复、清理的逐步操作。 |
 | `docs/acceptance.md` | 面试题逐项验收清单，标明本地实现与云端证据的状态。 |
+| `docs/deployment-evidence.md` | 东京区域手工部署、应用访问、备份恢复与告警的实测记录。 |
 | `docs/terraform-feasibility.md` | 逐项说明 Terraform 可实现的操作、扩缩容边界和账号权限约束。 |
 | `docs/plan-summary.md` | 东京测评账号的 Terraform 应用进度与待云端验收项。 |
 | `docs/repository-map.md` | 每个受版本控制的目录和文件的具体作用。 |
@@ -56,9 +59,9 @@ AWS 东京区域凭证已在本机 `AKSK.env`，告警别名已确定为 `zhangs
 
 | 输入 | 用途 | 安全方式 |
 | --- | --- | --- |
-| GitHub 公开可见性 | 让面试官无需登录即可查看交付仓库。 | 当前匿名访问返回 404；检查账号验证/限制提示，并联系 GitHub Support 复核。 |
+| GitHub 账号可见性与 Actions | 让面试官无需登录查看代码，并运行自动发布。 | 匿名账号主页、仓库和 raw 文件均返回 404；仓库级 Actions 已启用，但手动触发返回 HTTP 422 `Actions has been disabled for this user`。账号已开启 2FA；短信验证页提示请求次数限制，尚无 Support 工单。账号所有者稍后完成短信验证，再提交 404/422 证据请求复核。 |
 | Actions 中的 AWS AK/SK Secrets | 让工作流发布镜像和执行 workload Terraform。 | 已从本地 `AKSK.env` 配置到新仓库的 Secrets，未写入 Git。测试结束后删除 Secrets 并轮换/停用该 AK/SK。 |
-| 两位告警收件人的订阅确认 | SNS 发布邮件前必须分别确认。 | 已根据 `zhangsan` 生成地址；收件人须点击 AWS 确认邮件。 |
+| 两位告警收件人的订阅确认 | SNS 发布邮件前必须分别确认。 | 两个订阅仍为 `PendingConfirmation`；收件人须点击 AWS 确认邮件。当前已验证 CloudWatch 告警触发，未验证邮件送达。 |
 | 可选域名与同区域 ACM 证书 ARN | 如果要 HTTPS 和友好网址。 | 没有证书时使用 ALB 提供的 HTTP DNS 名称。 |
 
 云资源参数通过 `terraform.tfvars`、`backend.hcl` 传入；AWS 密钥留在本地 `AKSK.env`，发布时另存入 GitHub Actions Secrets，均不进入受版本控制的文件。示例文件可复制后填写；实际变量文件被 `.gitignore` 排除。部署与销毁命令见 [运行手册](docs/runbook.md)。
@@ -68,6 +71,7 @@ AWS 东京区域凭证已在本机 `AKSK.env`，告警别名已确定为 `zhangs
 - [架构和资源边界](docs/architecture.md)
 - [架构图片](docs/architecture.png)
 - [逐项验收清单](docs/acceptance.md)
+- [东京部署与验收记录](docs/deployment-evidence.md)
 - [Terraform 实现边界与缩容限制](docs/terraform-feasibility.md)
 - [东京区域 Terraform 部署进度](docs/plan-summary.md)
 - [逐文件资源清单](docs/repository-map.md)
@@ -75,4 +79,4 @@ AWS 东京区域凭证已在本机 `AKSK.env`，告警别名已确定为 `zhangs
 
 ## AI 辅助说明
 
-本仓库的方案、Terraform、示例应用、备份程序及文档由 Codex 协助编写和检查。已完成的静态检查与本地容器测试记录在 [验收清单](docs/acceptance.md)；AWS 实际运行结果、邮件和截图须在部署后取得，不能用本地结果代替。
+本仓库的方案、Terraform、示例应用、备份程序及文档由 Codex 协助编写和检查。静态检查、本地容器测试和已观察到的 AWS 运行结果分别记录在 [验收清单](docs/acceptance.md) 与 [部署证据](docs/deployment-evidence.md)；GitHub Actions 运行和邮件送达尚未验证。

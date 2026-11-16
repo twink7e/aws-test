@@ -61,11 +61,12 @@
 | `.gitignore` | 排除 Terraform state/变量、密钥、依赖、日志和 dump。 |
 | `README.md` | 项目目标、完成标准、架构概览、所需输入和文档导航。 |
 | `.github/workflows/release.yml` | `main` 推送和手工发布的 CI/CD：Secrets 中的 AWS AK/SK、测试、构建/推送镜像、Terraform 发布及 SNS 结果通知。 |
-| `docs/acceptance.md` | 按测评要求逐项列出实现文件、已验证内容和待云端取得的证据。 |
+| `docs/acceptance.md` | 按测评要求逐项列出实现文件、已验证内容和剩余验收项。 |
 | `docs/architecture.md` | Terraform stack 边界、网络、请求、配置、备份和日志流。 |
 | `docs/architecture.png` | 可独立打开或提交的整体架构图。 |
+| `docs/deployment-evidence.md` | 东京区域实际部署、访问、日志、告警、备份与恢复的验证记录及外部阻碍。 |
 | `docs/terraform-feasibility.md` | 题目逐项的 Terraform 可实现性、告警设计、ECS/RDS 缩容限制和当前账号权限边界。 |
-| `docs/plan-summary.md` | 东京账号只读 Terraform 计划的资源数量、关键配置与剩余云端验收条件。 |
+| `docs/plan-summary.md` | 东京账号 Terraform 部署进度、资源数量、关键配置与剩余验收条件。 |
 | `docs/repository-map.md` | 当前逐目录、逐文件说明。 |
 | `docs/runbook.md` | 首次部署、验收、备份恢复、告警演示和销毁步骤。 |
 | `scripts/render_architecture.py` | 用 Pillow 重新生成 `docs/architecture.png`。 |

@@ -76,7 +76,7 @@ resource "aws_cloudwatch_metric_alarm" "backup_failed" {
   namespace           = "${var.name_prefix}/Backup"
   metric_name         = "BackupFailed"
   statistic           = "Sum"
-  period              = 300
+  period              = 60
   evaluation_periods  = 1
   threshold           = 0
   comparison_operator = "GreaterThanThreshold"

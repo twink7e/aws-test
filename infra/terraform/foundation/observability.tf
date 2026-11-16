@@ -113,14 +113,14 @@ resource "aws_cloudwatch_log_metric_filter" "app_error" {
 
 resource "aws_cloudwatch_metric_alarm" "app_error" {
   alarm_name          = "${var.project_name}-application-error"
-  alarm_description   = "Laravel emitted one or more ERROR log events in five minutes; also used as AppConfig rollback guard."
+  alarm_description   = "Laravel emitted one or more ERROR log events in one minute; also used as AppConfig rollback guard."
   comparison_operator = "GreaterThanOrEqualToThreshold"
   evaluation_periods  = 1
   threshold           = 1
   namespace           = "${var.project_name}/Application"
   metric_name         = "ApplicationErrors"
   statistic           = "Sum"
-  period              = 300
+  period              = 60
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.alerts.arn]
   ok_actions          = [aws_sns_topic.alerts.arn]

@@ -1,25 +1,25 @@
 # 测评验收清单
 
-“已实现”表示仓库已有配置或代码，并通过本地静态/容器检查；“待云端验证”表示需要实际 AWS 资源、GitHub Actions 运行或邮件确认后才能提供证据。提交前按此表逐项核对。
+“已实现”表示仓库已有配置或代码，并通过本地静态/容器检查；已完成的云端观察结果按项列出，其余仍须 GitHub Actions 运行、定时窗口或邮件确认。详细记录见 [部署证据](deployment-evidence.md)。
 
 | 验收项 | 实现位置 | 当前状态与证据 |
 | --- | --- | --- |
-| AWS 东京区域、资源可复现 | `infra/terraform/bootstrap/`、`foundation/`、`workload/` | 已实现；三套 Terraform `validate` 通过。`bootstrap` 已创建 6 项；`foundation` 已创建 88 项（初次 87 项、日志保留期补充 1 项），均无修改或删除；`workload` 待发布。详见 `docs/plan-summary.md`。 |
+| AWS 东京区域、资源可复现 | `infra/terraform/bootstrap/`、`foundation/`、`workload/` | 三套 Terraform `validate` 通过；东京区域已应用 `bootstrap` 6 项、`foundation` 88 项（初次 87 项、日志保留期补充 1 项）、`workload` 首次 23 项。后续告警周期调整分别在 foundation/workload 各修改 1 项、无新增或销毁；最新两个计划均无差异。详见 [部署进度](plan-summary.md)。 |
 | 成本优先、单 AZ 小规格 | `foundation/database.tf`、`workload/ecs.tf`、`workload/backup.tf` | RDS 单 AZ `db.t4g.micro`，应用和备份任务均为 Fargate 最小的 0.25 vCPU/0.5 GiB；未建设 RDS Multi-AZ 或热备。ALB 仍按服务要求跨两个 AZ 子网。 |
-| Laravel 13、PHP 8.4、Fargate Docker 部署 | `app/Dockerfile`、`workload/ecs.tf`、`app/docker/nginx.Dockerfile` | ARM64 镜像与本地 HTTP 冒烟测试通过；待 ECS 部署。 |
-| 首页显示非敏感环境变量 | `app/config/demo.php`、`app/resources/views/home.blade.php`、`workload/variables.tf` | 已选 `DEMO_MESSAGE` 并提供默认值；待 ECS 实际页面截图。 |
-| AppConfig 动态配置、发布、回滚与通知 | `foundation/appconfig.tf`、`foundation/notifications.tf`、`app/app/Support/AppConfig.php` | 本地模拟 Agent 值通过；待真实配置更新、回滚和 SNS 邮件验证。 |
-| Nginx JSON 访问日志及 `X-Amzn-Trace-Id` | `app/docker/nginx.conf`、`app/docker/smoke.sh` | 本地日志检验通过；待 CloudWatch Logs 截图。 |
-| Laravel/PHP-FPM、ALB、备份日志进入 CloudWatch | `app/config/logging.php`、`app/docker/fpm.conf`、`foundation/observability.tf`、`workload/ecs.tf` | 已配置保留期和投递；待 AWS 实际日志验证。 |
+| Laravel 13、PHP 8.4、Fargate Docker 部署 | `app/Dockerfile`、`workload/ecs.tf`、`app/docker/nginx.Dockerfile` | 三张 ARM64 镜像已手工构建并推送 ECR；ECS 服务运行 1 个应用任务，ALB 目标健康；首页与 `/healthz` 均返回 HTTP 200。 |
+| 首页显示非敏感环境变量 | `app/config/demo.php`、`app/resources/views/home.blade.php`、`workload/variables.tf` | ECS 实际首页显示 `DEMO_MESSAGE` 的 `Hello from POPER test`。 |
+| AppConfig 动态配置、发布、回滚与通知 | `foundation/appconfig.tf`、`foundation/notifications.tf`、`app/app/Support/AppConfig.php` | 首页在不变更 ECS 任务定义的情况下显示临时内容 `Live update verified`，通过 Terraform 恢复后再次显示 `Hello from AppConfig`。自动回滚和 SNS 邮件仍待验证。 |
+| Nginx JSON 访问日志及 `X-Amzn-Trace-Id` | `app/docker/nginx.conf`、`app/docker/smoke.sh` | CloudWatch 中已看到 Nginx JSON 日志，自定义 `X-Amzn-Trace-Id` 可在 Nginx 与 Laravel 日志中查到；截图待整理。 |
+| Laravel/PHP-FPM、ALB、备份日志进入 CloudWatch | `app/config/logging.php`、`app/docker/fpm.conf`、`foundation/observability.tf`、`workload/ecs.tf` | CloudWatch Logs 已收到 Nginx、Laravel/PHP-FPM、ALB JSON、备份及 Lambda 控制器日志；截图待整理。 |
 | 东京时间 17:00–17:59 为 2 个任务，其他时间 1 个 | `workload/autoscaling.tf`、`workload/data.tf` | 已实现，容量上下限由定时操作管理；待跨时间窗口验证。 |
-| RDS PostgreSQL 每日全量 dump 到 S3 | `foundation/database.tf`、`workload/backup.tf`、`backup/` | `pg_dump -Fc` 容器及 Scheduler → Lambda → ECS 已实现；待手动执行和恢复演练。 |
-| 备份失败告警 | `workload/backup.tf`、`workload/backup_controller.py`、`workload/monitoring.tf` | 控制器检查 `RunTask.Failures` 与任务退出码；Scheduler、EventBridge、Lambda 自身错误也有告警。7 项本地控制器测试通过；待云端触发并截图。 |
-| `main` 推送自动构建 ECR 镜像并发布 ECS | `.github/workflows/release.yml` | 已实现 Actions Secrets AK/SK、镜像 digest、ECS 稳定性检查；`actionlint` 和本地镜像测试通过。待真实 GitHub Actions run。 |
-| 发布成功/失败通知 | `.github/workflows/release.yml`、`foundation/notifications.tf` | 已配置 SNS；待确认收件人并验证邮件。AWS 认证本身失败时，SNS 通知 job 也可能无法认证，应同时查看 GitHub Actions 失败状态。 |
-| ECS 副本、CPU、内存和 ALB HTTP 状态看板 | `workload/monitoring.tf` | 已配置 Dashboard；待真实指标和截图。 |
-| 应用 `ERROR` 告警 | `foundation/observability.tf`、`app/routes/web.php` | 已配置；本地故障路由可产生 JSON `ERROR`，待 CloudWatch/SNS 验证。 |
-| ALB 精确 HTTP 500 比例超过 10% 告警 | `workload/monitoring.tf`、`foundation/observability.tf` | 已配置 JSON ALB access log metric filter + metric math；待真实流量验证，日志投递会有延迟。 |
+| RDS PostgreSQL 每日全量 dump 到 S3 | `foundation/database.tf`、`workload/backup.tf`、`backup/` | 手工 Lambda → ECS 备份成功，S3 dump 为 16,664 字节；隔离 PostgreSQL 17 恢复出 9 张表和 3 条 migration 记录。临时 Scheduler 于东京时间 12:52 触发备份任务，退出码 0，S3 再次收到 16,664 字节 dump；之后通过 Terraform 恢复 `cron(0 2 * * ? *)`、`Asia/Tokyo`。正式 02:00 运行仍待观察。 |
+| 备份失败告警 | `workload/backup.tf`、`workload/backup_controller.py`、`workload/monitoring.tf` | 受控任务退出码 1，Lambda 判定 `false`，`BackupFailed` 指标为 1，Alarm 进入 `ALARM`。告警周期从 300 秒改为 60 秒；2026-11-16 11:58:27 UTC+08 已恢复 `OK`。SNS 邮件待验证。 |
+| `main` 推送自动构建 ECR 镜像并发布 ECS | `.github/workflows/release.yml` | 手工镜像构建、ECR 推送、digest 固定和 Terraform 首发已完成；工作流已实现并配置 Secrets/Variables，但 GitHub 返回 HTTP 422 `Actions has been disabled for this user`，没有 Actions 成功运行记录。 |
+| 发布成功/失败通知 | `.github/workflows/release.yml`、`foundation/notifications.tf` | 三个受控告警的 CloudWatch action history 均显示 SNS topic action 执行成功；两个邮件订阅仍为 `PendingConfirmation`，邮件未验证。Actions 未运行，发布通知未验证。AWS 认证失败时 SNS job 也可能无法认证，应同时查看 Actions 状态。 |
+| ECS 副本、CPU、内存和 ALB HTTP 状态看板 | `workload/monitoring.tf` | 已配置 Dashboard；ECS/ContainerInsights `RunningTaskCount` 实测 1.0，AWS/ECS `CPUUtilization` 有数据点；看板截图待整理。 |
+| 应用 `ERROR` 告警 | `foundation/observability.tf`、`app/routes/web.php` | 受控测试产生 2 条 `ERROR` 后进入 `ALARM`；告警周期由 300 秒改为 60 秒，2026-11-16 03:53 UTC 恢复 `OK`。测试故障路由已关闭；SNS 邮件尚未验证。 |
+| ALB 精确 HTTP 500 比例超过 10% 告警 | `workload/monitoring.tf`、`foundation/observability.tf` | 实测 500 比例 89.655% 时进入 `ALARM`，关闭测试故障路由后恢复 `OK`；两个路径均返回 404。SNS 邮件尚未验证。 |
 | 容器 `nofile` 限制 | `workload/ecs.tf`、`workload/backup.tf` | 已在任务定义设置 soft/hard 131072；待运行任务内验证。 |
 | Terraform 可实现性和缩容限制 | `docs/terraform-feasibility.md` | 已逐项说明，ECS 可按计划缩到 1 个任务；RDS 存储不可原地缩小。 |
 | 架构图、资源说明和操作手册 | `docs/architecture.png`、`docs/repository-map.md`、`docs/runbook.md` | 已生成并核对；实际 AWS Console URL 和告警截图待部署后补齐。 |
-| 公开 GitHub 仓库链接与清理 | `README.md`、`docs/runbook.md` | 独立仓库 [fafafafa868888/poper-test](https://github.com/fafafafa868888/poper-test) 已推送代码并配置 Actions；登录态显示 Public，但匿名访问账号主页和仓库返回 404，待 GitHub 复核可见性。演示结束按 workload → foundation → bootstrap 顺序销毁。 |
+| 公开 GitHub 仓库链接与清理 | `README.md`、`docs/runbook.md` | 独立仓库 [fafafafa868888/poper-test](https://github.com/fafafafa868888/poper-test) 已推送 `main`，登录态显示 Public；匿名账号主页、仓库和 raw 文件均返回 404。账号已开启 2FA，但短信验证页提示请求次数限制，尚未提交 GitHub Support 工单；账号所有者稍后须完成验证。演示结束按 workload → foundation → bootstrap 顺序销毁。 |
